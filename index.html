@@ -191,6 +191,7 @@ function permalink(s0, s1, offset) {
   return `?s0=${s0}&s1=${s1}&offset=${offset}`;
 }
 
+const formURL = 'https://docs.google.com/forms/d/e/1FAIpQLSebCplJCYPV49ixCXvnJ7MejF8h8dPvJNLeYQRmesiaZ_hThQ/viewform?usp=pp_url&entry.29853088=';
 function make_row(n, s0, s1, val) {
   const rowClasses = ['rngRow'];
   if (n === 0) {
@@ -228,6 +229,9 @@ function make_row(n, s0, s1, val) {
         </span>`;
       })
       .join('; <br>');
+  }
+  if (!notes) {
+    notes = `<a class="editLink" target="_blank" href="${formURL}${s0},${s1},${rowOffset},${val}">✍️</a>`;
   }
   return `<tr class="${rowClasses.join(' ')}">
     <td class="link"><a href="${permalink(s0, s1, rowOffset)}">🔗</a></td>

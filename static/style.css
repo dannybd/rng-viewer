@@ -112,6 +112,12 @@ body.theme-light #results .rngRow.blockStart .s1 {
 #results tr:hover .link a {
   opacity: 1;
 }
+#results tbody .editLink {
+  opacity: 0;
+}
+#results tr:hover .editLink {
+  opacity: 1;
+}
 #results .rollDistance {
   font-family: monospace;
   padding-right: 32px;
