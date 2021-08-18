@@ -1,0 +1,141 @@
+body {
+  font-family: 'Lora';
+}
+body.theme-dark {
+  background-color: black;
+}
+body.theme-light {
+  background-color: white;
+}
+header {
+  background-color: inherit;
+  margin: auto;
+  top: 0;
+  padding: 40px calc(50% - 512px);
+  position: sticky;
+  width: 100%;
+}
+header > p {
+  font-size: 12px;
+}
+header > p a {
+  text-decoration: underline;
+  text-decoration-style: dashed;
+}
+button {
+  border: 1px solid gray;
+  border-radius: 25px;
+}
+#csv {
+  border: 1px solid gray;
+  border-radius: 25px;
+  cursor: pointer;
+  display: block;
+  margin-top: 12px;
+}
+#csv:hover {
+  color: inherit;
+  text-decoration: none;
+}
+.theme-dark {
+  color: white;
+}
+.theme-light {
+  color: black;
+}
+#settings {
+  position: fixed;
+  right: 10px;
+  text-align: right;
+  top: 10px;
+}
+.DepthChart-Team-Wrapper {
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.25;
+}
+#results {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+#results th {
+  border-bottom: 1px solid gray;
+  border-top: 1px solid gray;
+  padding: 20px 0;
+  position: sticky;
+  top: 128px;
+}
+body.theme-dark #results th {
+  background: black;
+}
+body.theme-light #results th {
+  background: white;
+}
+#whereami {
+  color: inherit;
+  position: absolute;
+  right: 10px;
+}
+body.theme-dark .rngRow.odd {
+  background-color: #111;
+}
+body.theme-light .rngRow.odd {
+  background-color: #eee;
+}
+#results .rngRow.blockEnd td {
+  border-bottom: 1px dotted gray;
+}
+body.theme-dark #results .rngRow.blockEnd .s0,
+body.theme-dark #results .rngRow.blockStart .s1 {
+  color: darkred;
+}
+body.theme-light #results .rngRow.blockEnd .s0,
+body.theme-light #results .rngRow.blockStart .s1 {
+  color: deeppink;
+}
+#results .rngRow.highlight {
+  background-color: #ffff0040;
+}
+#results .rngRow.highlight .stateNum {
+  color: inherit;
+  font-weight: bold;
+}
+#results .link {
+  font-size: 50%;
+  text-align: center;
+}
+#results tbody .link a {
+  opacity: 0;
+  padding: 0 25px;
+}
+#results tr:hover .link a {
+  opacity: 1;
+}
+#results .rollDistance {
+  font-family: monospace;
+  padding-right: 32px;
+  text-align: right;
+}
+#results .stateNum {
+  font-family: monospace;
+  font-size: 80%;
+  color: gray;
+}
+#results .notes .manual {
+  color: #5988ff;
+}
+#results .notes .manual .explainer {
+  content: '[?]';
+  font-size: 70%;
+  vertical-align: top;
+}
+#loading {
+  margin-top: 100px;
+  position: absolute;
+  text-align: center;
+  width: 100%;
+}
+#player-chooser {
+  color: black;
+}

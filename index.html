@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Nominative Determinism</title>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;700&amp;family=Open+Sans:wght@400;700&amp;display=swap" rel="stylesheet">
+  <link href="https://d35iw2jmbg6ut8.cloudfront.net/static/css/main.b6b21d7e.chunk.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
+  <script src="static/manual-lmnopqr.js"></script>
+  <!--
+  <meta property="theme-color" content="#000000">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="sibr">
+  <meta property="og:title" content="Nominative Determinism">
+  <meta property="og:image" content="static/rng-scanner.png" />
+  <meta property="og:image:secure" content="static/rng-scanner.png" />
+  <meta property="og:description" content="Scan Blaseball's RNG in the right spots to find patterns...and derive the stars.">
+  <meta property="description" content="Scan Blaseball's RNG in the right spots to find patterns...and derive the stars.">
+  <meta name="twitter:site" content="@SIBROfficial">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Nominative Determinism">
+  <meta name="twitter:image" content="static/rng-scanner.png">
+  <meta name="twitter:image:alt" content="Screenshot of the Nominative Determinism user interface. It is a table of information showing internal state values for the Random Number Generator underpinning Blaseball, as well as a column of the Math dot random values expected to be outputted in order, followed by a column of actual Blaseball player statistics which match those values.">
+  <meta name="twitter:description" content="Scan Blaseball's RNG in the right spots to find patterns...and derive the stars.">
+  -->
+</head>
+<body class="theme-dark no-x">
+<noscript>You need to enable JavaScript to run this website.</noscript>
+<header>
+  <h1><a href="?">Nominative Determinism</a></h1>
+  <p>
+    The Random Number Generator (RNG) behind <tt>Math.random()</tt> is cryptographically weak.
+    It also underpins every dice roll in Blaseball.
+    <br>
+    If we look in the right spots, we can find
+    patterns of recognizable stats for various players&mdash;and derive the stars.
+    <br>
+    Built by honu. Based on RNG research in
+    <a href="https://blog.securityevaluators.com/xorshift128-backward-ff3365dc0c17">this blog post</a>,
+    and immeasurable help from Astrid, including
+    <a href="https://gist.github.com/xSke/c9d20dd09e640e33152c5f504582e1d9/">this gist</a>.
+  </p>
+</header>
+<div id="settings">
+  <button id="lightdark" title="Toggle light and dark mode">🌗</button><br>
+  <a id="csv" title="Download CSV" download="rng-rolls.csv">&nbsp;CSV&nbsp;</a>
+</div>
+<table id="results">
+  <thead>
+    <tr>
+      <th class="link" title="Link to highlight this row">🔗</th>
+      <th class="rollDistance" title="Assuming we kept calling Math.random() over and over, how far from the highlighted value are the other rolls?">± Rolls</th>
+      <th class="stateNum s0" title="One of the two internal state values used in Math.random()">s0</th>
+      <th class="stateNum s1" title="One of the two internal state values used in Math.random()">s1</th>
+      <th class="stateNum offset" title="Math.random() pre-generates blocks of 64 values into a buffer, and reads them out in reverse. If we have a list of values, we don't know where one block ends and the next begins--so this tracks our understanding. Change the GET param in the URL to try a different guess at where the blocks swap.">Offset</th>
+      <th class="val" title="Float value returned by Math.random()">Value</th>
+      <th title="Do we know anything about this float value?">
+        Notes
+        <button id="whereami" title="Where am I looking in the RNG?">Where am I?</button>
+      </th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+<div id="loading"><h2><em>Loading...</em></h2></div>
+<script type="text/javascript">
+
+// Toggle light/dark mode
+$('#lightdark').click(_ => {
+  document.body.classList.toggle('theme-dark');
+  document.body.classList.toggle('theme-light');
+});
+$('#csv').hide();
+
+const BOOKMARKS = [
+  ['Kichiro Guerra (S1 Player Rolls)', 11489856334623440466n, 7665746933450455135n, 59],
+  ['Sixpack Dogwalker', 9168710189202541577n, 14545355385888695162n, 17],
+  ['Quack Enjoyable', 10182396006991433699n, 13676082267027916552n, 9],
+  ['S10 Tokyo Lift Generation', 7393880654920413304n, 14626223854808621512n, 9],
+  ['The Second Wyatt Masoning', 4243013071090434691n, 3480449760390232967n, 21],
+  ['Busan Bison (@ Ophelia Magpie thwack)', 11854539398420415524n, 3346085365313049083n, 26],
+  ['Canberra Drop Bears (@ Gomer Beefsteak thwack)', 1401924709864429874n, 1199756349802783714n, 41],
+  ['Carolina Queens (@ Dougie Crimes thwack)', 2762294403869760141n, 2599760899501100324n, 34],
+  ['Florence Rhinoceroses (@ Adi Brothers thwack)', 15261288688065231526n, 3728438856590891605n, 51],
+  ['Kola Boar (@ Ximena Pynchon thwack)', 12356624603841300223n, 5402239599301472502n, 11],
+  ['La Paz Llamas (@ Aldo LaBelle thwack)', 15270809836788151929n, 15956839174187750842n, 27],
+  ['Laredo Excavators (@ Kale DeShields thwack)', 2710587721649028711n, 13204901874882136795n, 59],
+  ['Lisbon Lynx (@ Lydia Gooseball thwack)', 6036324983875144296n, 16896441995906573199n, 8],
+  ['London Frogs (@ Sophie Malackey thwack)', 5914664532963055877n, 10498024781115300750n, 13],
+  ['Louisville Lobsters (@ Goeff Wood thwack)', 11501783409738314809n, 3286243369324835397n, 13],
+  ['Maryland Squirrels (@ Buck Humdinger thwack)', 1570482240751354244n, 14736600085481755408n, 11],
+  ['Phoenix Trunks (@ Leif Gawrsh thwack)', 30771074130781185n, 5883269418365184584n, 21],
+  ['San Diego Saltines (@ Hyena Buttercup thwack)', 9981119464198802303n, 18440814751407907545n, 40],
+  ['Sao Paulo Parrots (@ Anabela Henriques thwack)', 18216982414311324831n, 17042059152575397257n, 2],
+];
+
+// Built as closely as possible to the Python implementation in Astrid's gist:
+// https://gist.github.com/xSke/c9d20dd09e640e33152c5f504582e1d9/
+
+const MASK = BigInt('0xFFFFFFFFFFFFFFFF');
+
+function reverse17(val) {
+  return val ^ (val >> 17n) ^ (val >> 34n) ^ (val >> 51n);
+}
+
+function reverse23(val) {
+  return (val ^ (val << 23n) ^ (val << 46n)) & MASK;
+}
+
+function xs128p(state0, state1) {
+  let s1 = state0 & MASK;
+  let s0 = state1 & MASK;
+  s1 ^= (s1 << 23n) & MASK;
+  s1 ^= (s1 >> 17n) & MASK;
+  s1 ^= s0 & MASK;
+  s1 ^= (s0 >> 26n) & MASK;
+  state0 = state1 & MASK;
+  state1 = s1 & MASK;
+  return [state0, state1];
+}
+
+function xs128p_backward(state0, state1) {
+  let prev_state1 = state0;
+  let prev_state0 = state1 ^ (state0 >> 26n);
+  prev_state0 = prev_state0 ^ state0;
+  prev_state0 = reverse17(prev_state0);
+  prev_state0 = reverse23(prev_state0);
+  return [prev_state0, prev_state1];
+}
+
+const struct = {
+  // Replicates python3's struct.pack('<Q', data)
+  pack: bigint => {
+    let bytes = [];
+    while (bigint > 0) {
+      bytes.push(parseInt(bigint & 255n));
+      bigint >>= 8n;
+    }
+    return bytes;
+  },
+
+  // Replicates python3's struct.unpack('d', data)
+  unpack: bytes => {
+    const buffer = new ArrayBuffer(bytes.length);
+    const view = new DataView(buffer);
+    bytes = bytes.slice().reverse();
+    bytes.forEach((byte, i) => view.setUint8(i, byte));
+    return view.getFloat64();
+  },
+};
+
+function to_double(out) {
+  let double_bits = ((out & MASK) >> 12n) | BigInt('0x3FF0000000000000');
+  return struct.unpack(struct.pack(double_bits)) - 1;
+}
+
+function generate_block(s0, s1, size) {
+  size = _fallback(size, 64);
+  block = [];
+  for (let i = 0; i < size; i++) {
+    [s0, s1] = xs128p(s0, s1);
+    block.push([s0, s1, to_double(s0)]);
+  }
+  block.reverse();
+  return [s0, s1, block];
+}
+
+function step_backwards(s0, s1, amount) {
+  for (let i = 0; i < amount; i++) {
+    [s0, s1] = xs128p_backward(s0, s1);
+  }
+  return [s0, s1];
+}
+
+function dump_around(s0, s1, blocks, offset) {
+  blocks = _fallback(blocks, 3);
+  offset = _fallback(offset, 0);
+  [s0, s1] = step_backwards(s0, s1, 64 * blocks + offset + 1);
+  const rows = [];
+  for (let i = 0; i < blocks * 2; i++) {
+    [s0, s1, block] = generate_block(s0, s1);
+    rows.push(...block);
+  }
+  return rows;
+}
+
+function permalink(s0, s1, offset) {
+  return `?s0=${s0}&s1=${s1}&offset=${offset}`;
+}
+
+function make_row(n, s0, s1, val) {
+  const rowClasses = ['rngRow'];
+  if (n === 0) {
+    rowClasses.push('highlight');
+  }
+  if (n % 2) {
+    rowClasses.push('odd');
+  }
+  const rowOffset = modulo(offset - n, 64);
+  if (rowOffset === 63) {
+    rowClasses.push('blockStart');
+  }
+  if (rowOffset === 0) {
+    rowClasses.push('blockEnd');
+  }
+  let notes = '';
+  const lookup = LMNOPQR[val];
+  if (lookup) {
+    notes = lookup
+      .map(([uuid, name, rollID, timestamp, type]) => {
+        type = type || 'known';
+        let dateStr = '';
+        if (timestamp) {
+          const date = new Date(timestamp * 1000);
+          dateStr = `(<span title="As of ${date}">${date.toISOString().split('T')[0]}</span>)`;
+        }
+        const explainer = type === 'manual'
+          ? `<span class="explainer" title="This was manually inferred by folks crunching the data, not a stat pulled from Blaseball itself.">[?]</span>`
+          : '';
+        return `<span class="${type}">
+          <span title="${uuid}">${name}</span> /
+          ${rollType[rollID] || rollID}
+          ${dateStr}
+          ${explainer}
+        </span>`;
+      })
+      .join('; <br>');
+  }
+  return `<tr class="${rowClasses.join(' ')}">
+    <td class="link"><a href="${permalink(s0, s1, rowOffset)}">🔗</a></td>
+    <td class="rollDistance">${n}</td>
+    <td class="stateNum s0">${s0}</td>
+    <td class="stateNum s1">${s1}</td>
+    <td class="stateNum offset">${rowOffset}</td>
+    <td class="val">${val}</td>
+    <td class="notes">${notes}</td>
+    <td></td>
+  </tr>`;
+}
+function _fallback(val, _default) {
+  return val !== undefined ? val : _default;
+}
+
+function modulo(x, n) {
+  return ((x % n) + n) % n;
+}
+
+function tryBigInt(val) {
+  try {
+    return BigInt(val);
+  } catch (_) {
+    return null;
+  }
+}
+
+const rollType = {
+  'firstName': 'firstName',
+  'lastName': 'lastName',
+  0: 'thwackability',
+  1: 'moxie',
+  2: 'divinity',
+  3: 'musclitude',
+  4: 'patheticism',
+  5: 'buoyancy',
+  6: 'baseThirst',
+  7: 'laserlikeness',
+  8: 'groundFriction',
+  9: 'continuation',
+  10: 'indulgence',
+  11: 'martyrdom',
+  12: 'tragicness',
+  13: 'shakespearianism',
+  14: 'suppression',
+  15: 'unthwackability',
+  16: 'coldness',
+  17: 'overpowerment',
+  18: 'ruthlessness',
+  19: 'omniscience',
+  20: 'tenaciousness',
+  21: 'watchfulness',
+  22: 'anticapitalism',
+  23: 'chasiness',
+  24: 'pressurization',
+  25: 'cinnamon',
+  'soul': 'soul',
+  'peanutAllergy': 'peanutAllergy',
+  'fate': 'fate',
+  'ritual': 'ritual',
+  'blood': 'blood',
+  'coffee': 'coffee',
+};
+
+// Lookup of Magic Numbers Ostensibly Produced Quasi-Randomly
+let LMNOPQR = {};
+
+const search = new URLSearchParams(window.location.search);
+const s0 = tryBigInt(search.get('s0'));
+const s1 = tryBigInt(search.get('s1'));
+const blocks = parseInt(tryBigInt(search.get('blocks') || 3n));
+const offset = parseInt(tryBigInt(search.get('offset') || 0n));
+if (s0 === null || s1 === null) {
+  $('#loading').hide();
+  $('#results thead').hide();
+  $('#results tbody').html(
+    BOOKMARKS
+      .map(([label, s0, s1, offset]) => `
+        <tr>
+          <td></td>
+          <td><div style="width: 200px;"></div></td>
+          <td><strong><a href="${permalink(s0, s1, offset)}">${label}</a></strong></td>
+          <td class="stateNum state0">${s0}</td>
+          <td class="stateNum state1">${s1}</td>
+          <td><div style="width: 200px;"></div></td>
+        </tr>
+      `)
+      .join('\n')
+    + '<tr><td>&nbsp;</td></tr>'
+    + '<tr><td></td><td></td><td>Loading S1 Players...</td><td></td><td></td><td></td></tr>',
+  );
+  $.getJSON('static/player-links.json', data => {
+    const options = data
+      .sort((a, b) => a.name > b.name ? 1 : -1)
+      .map(({name, s0, s1, offset}) =>
+        `<option value="${permalink(s0, s1, offset)}">${name}</option>`,
+      )
+      .join('\n');
+    $('#results tbody tr:last-child').html(`
+      <td></td>
+      <td></td>
+      <td><select id="player-chooser" onchange="location = this.value;">
+        <option selected disabled>Choose a Season 1 Player</option>
+        ${options}
+      </select></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    `)
+  });
+}
+
+const MANUAL_LMNOPQR = {};
+__MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
+  entry[4] = 'manual';
+  if (!MANUAL_LMNOPQR[val]) {
+    MANUAL_LMNOPQR[val] = [];
+  }
+  MANUAL_LMNOPQR[val].push(entry);
+});
+
+$.get('static/lmnopqr.json', data => {
+  LMNOPQR = data;
+  for (val in MANUAL_LMNOPQR) {
+    if (!LMNOPQR[val]) {
+      LMNOPQR[val] = [];
+    }
+    LMNOPQR[val].push(...MANUAL_LMNOPQR[val]);
+  }
+  if (s0 === null || s1 === null) {
+    return;
+  }
+  const rows = dump_around(s0, s1, blocks, offset);
+
+  const startIndex = rows.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
+
+  $('#loading').hide();
+  $('#results tbody').html(
+    rows
+      .map((row, i) => make_row(i - startIndex, ...row))
+      .join('\n'),
+  );
+
+  const csv = rows
+    .map(([s0, s1, val], i) => {
+      const lookup = LMNOPQR[val];
+      let extra = ',,,';
+      if (lookup) {
+        extra = lookup.map(([uuid, name, rollID, timestamp]) => {
+          return `${uuid},${name.includes(',') ? `"${name}"` : name},${rollType[rollID] || rollID},${timestamp}`;
+        })[0];
+      }
+      const rowOffset = modulo(offset - i + startIndex, 64);
+      return `${s0},${s1},${rowOffset},${val},${extra}`;
+    })
+    .join('\n');
+  $('#csv')
+    .attr('href', `data:text/plain;charset=UTF-8,S0,S1,Offset,Value,UUID,Name,Stat,As Of\n${csv}`)
+    .attr('download', `rng-rolls-${s0},${s1},${offset}.csv`)
+    .show();
+
+  $('html, body').animate({scrollTop: $('.rngRow.highlight').offset().top - 400});
+});
+
+let KNOWN_BLOCKS = null;
+let KNOWN_ORIENTATION = null;
+
+function findOrientation(maxDistance, direction) {
+  if (KNOWN_ORIENTATION) {
+    return KNOWN_ORIENTATION;
+  }
+  if (!KNOWN_BLOCKS) {
+    console.error('Missing KNOWN_BLOCKS!');
+    return null;
+  }
+  direction = _fallback(direction, 0);
+  const runBackwards = direction <= 0;
+  const runForwards = direction >= 0;
+  let back0 = forw0 = s0;
+  let back1 = forw1 = s1;
+  let backKey = forwKey = null;
+  for (let rolls = 0; rolls < maxDistance; rolls++) {
+    if (runBackwards) {
+      backKey = `${back0},${back1}`;
+      if (KNOWN_BLOCKS[backKey]) {
+        KNOWN_ORIENTATION = {
+          rngDistance: -1 * rolls,
+          correctedOffset: modulo(rolls, 64),
+          foundBlockS0: back0,
+          foundBlockS1: back1,
+          fragment: KNOWN_BLOCKS[backKey],
+        };
+        break;
+      }
+      [back0, back1] = xs128p_backward(back0, back1);
+    }
+    if (runForwards) {
+      forwKey = `${forw0},${forw1}`;
+      if (KNOWN_BLOCKS[forwKey]) {
+        KNOWN_ORIENTATION = {
+          rngDistance: rolls,
+          correctedOffset: modulo(-1 * rolls, 64),
+          foundBlockS0: forw0,
+          foundBlockS1: forw1,
+          fragment: KNOWN_BLOCKS[forwKey],
+        };
+        break;
+      }
+      [forw0, forw1] = xs128p(forw0, forw1);
+    }
+  }
+  return KNOWN_ORIENTATION;
+}
+
+const whereami = document.getElementById('whereami');
+whereami.onclick = _ => {
+  if (whereami.disabled) {
+    return;
+  }
+  whereami.innerText = 'Searching...';
+  whereami.disabled = true;
+  if (!KNOWN_BLOCKS) {
+    $.getJSON('static/known-blocks.json', data => {
+      KNOWN_BLOCKS = data;
+      displayWhereAmI();
+    });
+    return;
+  }
+  setTimeout(displayWhereAmI, 100);
+};
+
+let maxDistance = 100000;
+function displayWhereAmI() {
+  const orientation = findOrientation(maxDistance);
+  whereami.innerText = 'Where am I?';
+  whereami.disabled = false;
+  if (!orientation) {
+    alert(
+      `Sorry, we did not find what timeline this is connected to. Maybe it\'s a brand new one!` +
+      `\n\nSearched ${maxDistance.toLocaleString()} rolls in either direction.` +
+      `\nClick again to 10x that search space. (Warning: slow!)`,
+    );
+    maxDistance *= 10;
+    return;
+  }
+  const {rngDistance, correctedOffset, fragment} = orientation;
+  let message = `You are looking at part of the "${fragment}" fragment.`;
+  const blockDist = Math.floor(Math.abs(rngDistance / 64) - 1); // TODO: is this right?
+  message += `\nThe nearest known anchor for that fragment is ` +
+    `${blockDist} ${blockDist === 1 ? 'block' : 'blocks'} ${rngDistance < 0 ? 'behind' : 'ahead'}.`;
+  if (correctedOffset === offset) {
+    message += `\nYou are oriented correctly with the known fragment.`;
+    alert(message);
+    return;
+  }
+  message += `\n\nYou are misoriented against the known fragment!` +
+    `\nProposed offset change: ${offset} -> ${correctedOffset}` +
+    `\nClick OK to reload with the corrected offset.`;
+  const shouldCorrect = confirm(message);
+  if (shouldCorrect) {
+    window.location.href = permalink(s0, s1, correctedOffset);
+  }
+}
+
+function addToFragment(fragmentName, maxBlockDist) {
+  maxBlockDist = _fallback(maxBlockDist, 50);
+
+  const blocks = [];
+  let backBlock = forwBlock = [...Array(offset)].reduce(
+    coord => xs128p_backward(...coord),
+    [s0, s1],
+  );
+  for (let blockDist = 0; blockDist <= maxBlockDist; blockDist++) {
+    blocks.unshift(backBlock.join(','));
+    backBlock = [...Array(64)].reduce(coord => xs128p_backward(...coord), backBlock);
+    blocks.push(forwBlock.join(','));
+    forwBlock = [...Array(64)].reduce(coord => xs128p(...coord), forwBlock);
+  }
+  return Object.fromEntries(blocks.map(block => [block, fragmentName]));
+}
+
+function printAddToFragment(fragmentName, maxBlockDist) {
+  console.log(JSON.stringify(addToFragment(fragmentName, maxBlockDist), null, '  '));
+}
+
+function findEventBoundary(maxDist, findEnd) {
+  maxDist = _fallback(maxDist, 1e6);
+  findEnd = _fallback(findEnd, true);
+  const xs128p_method = findEnd ? xs128p : xs128p_backward;
+  const start = window.performance.now();
+  let coord = [s0, s1];
+  let lastMatch = {coord, dist: 0};
+  let numMatches = 0;
+  for (let dist = 0; dist < maxDist; dist++) {
+    if (LMNOPQR[to_double(coord[0])]) {
+      lastMatch = {coord, dist};
+      numMatches++;
+    }
+    coord = xs128p_method(...coord);
+  }
+  const end = window.performance.now();
+  const duration = (end - start) / 1000;
+  console.log(
+    `Checked ${maxDist.toLocaleString()} rolls ` +
+    `${findEnd ? 'forwards' : 'backwards'} ` +
+    `in ${duration.toFixed(3)} seconds. ` +
+    `Found ${numMatches.toLocaleString()} matches in LMNOPQR.`,
+  );
+  let lastOffset = modulo(offset + (findEnd ? 1 : -1) * lastMatch.dist, 64);
+  // We want to scroll a bit further to the next block head
+  return [...Array(findEnd ? 64 - lastOffset : lastOffset)]
+    .reduce(coord => xs128p_method(...coord), lastMatch.coord);
+}
+
+function scrollCoord(coord, offset, dist) {
+  const xs128p_method = dist > 0 ? xs128p : xs128p_backward;
+  for (let i = 0; i < Math.abs(dist); i++) {
+    coord = xs128p_method(...coord);
+  }
+  return {coord, offset: modulo(offset + dist, 64)};
+}
+
+</script>
+</body>
+</html>
