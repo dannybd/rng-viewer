@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Explaining Nominative Determinism</title>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;700&amp;family=Open+Sans:wght@400;700&amp;display=swap" rel="stylesheet">
+  <link href="https://d35iw2jmbg6ut8.cloudfront.net/static/css/main.b6b21d7e.chunk.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
+  <script src="static/rng-solver.js"></script>
+</head>
+<body class="theme-dark no-x">
+<noscript>You need to enable JavaScript to run this website.</noscript>
+<header>
+  <h1><a href="?">Explaining Nominative Determinism</a></h1>
+  <p>
+    The Random Number Generator (RNG) behind <tt>Math.random()</tt> is cryptographically weak.
+    <br>
+    If we have just enough information, we can reverse-engineer the original RNG state,
+    and deterministically crack the past and future dice rolls around our information.
+    <br>
+    Built by honu. Based on RNG research in
+    <a href="https://blog.securityevaluators.com/xorshift128-backward-ff3365dc0c17">this blog post</a>,
+    and immeasurable help from ubuntor and Astrid, including
+    <a href="https://gist.github.com/xSke/c9d20dd09e640e33152c5f504582e1d9/">this gist</a>
+    and
+    <a href="https://github.com/xSke/resim/blob/main/rng_solver.py">this repo</a>.
+  </p>
+</header>
+<div id="settings">
+  <button id="lightdark" title="Toggle light and dark mode">🌗</button><br>
+</div>
+<div id="loading"><h2><em>Loading...</em></h2></div>
+<div><pre id="test"></pre></div>
+<script type="text/javascript">
+
+// Toggle light/dark mode
+$('#lightdark').click(_ => {
+  document.body.classList.toggle('theme-dark');
+  document.body.classList.toggle('theme-light');
+});
+
+const knowns = [
+    0.08109881677206165,  // baseThirst
+    [0.855381, 0.855382], // buoyancy
+    [0.877, 0.879],       // patheticism
+    null,                 // musclitude
+    null,                 // divinity
+    0.8836552885826778,   // moxie
+    [0.551, 0.553],       // thwackability
+];
+// s0,s1 at baseThirst generation
+const expected_solution = [[1496009117674886285n, 15779009155937865159n]];
+
+$('#loading').hide();
+console._log = console.log;
+console.log = (...x) => {
+  $('#test').append(
+    x.map(
+      y => ['string', 'number', 'bigint'].includes(typeof(y))
+        ? y
+        : JSON.stringify(y)
+    ).join(' '),
+    '\n',
+  );
+  console._log(...x);
+};
+test();
+
+</script>
+</body>
+</html>

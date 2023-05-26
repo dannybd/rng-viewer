@@ -142,6 +142,9 @@ body.theme-light #results .rngRow.blockStart .s1 {
   text-align: center;
   width: 100%;
 }
+pre {
+  color: inherit;
+}
 #player-chooser {
   color: black;
 }
