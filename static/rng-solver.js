@@ -158,6 +158,23 @@ function xs128p(state0, state1) {
   return [state0, state1];
 }
 
+function xs128p_backward(state0, state1) {
+  let prev_state1 = state0;
+  let prev_state0 = state1 ^ (state0 >> 26n);
+  prev_state0 = prev_state0 ^ state0;
+  prev_state0 = reverse17(prev_state0);
+  prev_state0 = reverse23(prev_state0);
+  return [prev_state0, prev_state1];
+}
+
+function reverse17(val) {
+  return val ^ (val >> 17n) ^ (val >> 34n) ^ (val >> 51n);
+}
+
+function reverse23(val) {
+  return (val ^ (val << 23n) ^ (val << 46n)) & MASK;
+}
+
 function state_to_double(s0) {
   const dataView = new DataView((new Float64Array(1)).buffer);
   dataView.setBigInt64(0, (s0 >> 12n) | 0x3FF0000000000000n);
@@ -197,7 +214,7 @@ function bit_length(n) {
   return i;
 }
 
-function solve(knowns) {
+function solve_in_rng_order(knowns) {
   /**
    * Determine valid RNG states which could output float values matching knowns
    *
@@ -281,7 +298,7 @@ function solve(knowns) {
       break;
     }
     if (row === 1n) {
-      console.log('ERROR: contradiction found, no solution!');
+      // console.log('ERROR: contradiction found, no solution!');
       return [];
     }
     particular_solution += (row & 1n) << BigInt(bit_length(row) - 2);
@@ -323,4 +340,60 @@ function solve(knowns) {
     }
   }
   return solutions;
+}
+
+
+/**
+ * Math.random() generates blocks of 64 values, and then reverses them:
+ *
+ *    block 1, roll 63
+ *    block 1, roll 62
+ *    block 1, roll 61
+ *    ...
+ *    block 1, roll  2
+ *    block 1, roll  1
+ *    block 1, roll  0
+ *    block 2, roll 63   <- this value is generated 127 rolls *after*
+ *    block 2, roll 62      the prior one which Math.random() outputted
+ *    block 2, roll 61
+ *
+ */
+const BLOCK_SIZE = 64;
+
+function solve_in_math_random_order(rolls) {
+  let results = [];
+  for (let offset = 0; offset < Math.min(rolls.length, BLOCK_SIZE); offset++) {
+    let knowns = [];
+    let block = [];
+    if (offset) {
+      block = rolls.slice(0, offset).reverse();
+      // If we have some initial offset, then the first block
+      // needs to have the rest of the block filled out with nulls
+      block.push(...Array(BLOCK_SIZE - block.length).fill(null));
+      knowns.push(...block);
+    }
+    for (let i = offset; i < rolls.length; i += BLOCK_SIZE) {
+      block = rolls.slice(i, i + BLOCK_SIZE).reverse();
+      // For every subsequent block, we need to fill the
+      // start of the block with nulls instead of the end
+      block.unshift(...Array(BLOCK_SIZE - block.length).fill(null));
+      knowns.push(...block);
+    }
+    let localResults = solve_in_rng_order(knowns);
+    if (!localResults.length) {
+      continue;
+    }
+    for (let result of localResults) {
+      for (let i = 0; i < (offset || BLOCK_SIZE) - 1; i++) {
+        result = xs128p(...result);
+      }
+      results.push({
+        s0: result[0],
+        s1: result[1],
+        offset: (offset || BLOCK_SIZE) - 1,
+        crossesBlockBoundary: knowns.length > BLOCK_SIZE,
+      });
+    }
+  }
+  return results;
 }

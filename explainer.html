@@ -63,7 +63,7 @@ console.log = (...x) => {
     x.map(
       y => ['string', 'number', 'bigint'].includes(typeof(y))
         ? y
-        : JSON.stringify(y)
+        : JSON.stringify(y, (_, v) => typeof(v) === 'bigint' ? v.toString() : v)
     ).join(' '),
     '\n',
   );
@@ -85,7 +85,7 @@ function test() {
   // s0,s1 at baseThirst generation
   const expected_solution = [[1496009117674886285n, 15779009155937865159n]];
   console.log('Running solve(knowns)...');
-  const sol = solve(knowns);
+  const sol = solve_in_rng_order(knowns);
   console.log(`got solutions: ${sol}`);
   if (sol.toString() === expected_solution.toString()) {
     console.log('test success: quack enjoyable!');
@@ -96,6 +96,38 @@ function test() {
 }
 
 test();
+
+function test2() {
+  // https://rng.sibr.dev/?s0=1496009117674886285&s1=15779009155937865159&offset=3
+  // In Math.random() output order!
+  const outputs = [
+    0.8553818003268248,
+    0.08109881677206165,
+    0.4331553731381861,
+    0.1805283222757248,
+    0.9168731767791545,
+    // split block
+    // 0.2637553293627233,
+    // 0.9692475075808971,
+    // 0.034293735113851476,
+    // 0.6220975442089625,
+    // 0.13177880189820135,
+    // 0.393173677080664,
+  ];
+  const results = solve_in_math_random_order(outputs);
+  for (let {s0, s1, offset, crossesBlockBoundary} of results) {
+    console.log(
+      `https://rng.sibr.dev/?s0=${s0}&s1=${s1}&offset=${offset}`,
+    );
+    if (!crossesBlockBoundary) {
+      console.log(
+        'Warning, does not cross a block boundary, so may be mis-aligned!',
+      );
+    }
+  }
+}
+
+test2();
 
 </script>
 </body>
