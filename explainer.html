@@ -33,7 +33,9 @@
   <button id="lightdark" title="Toggle light and dark mode">🌗</button><br>
 </div>
 <div id="loading"><h2><em>Loading...</em></h2></div>
-<div><pre id="test"></pre></div>
+<main>
+  <pre id="test"></pre>
+</main>
 <script type="text/javascript">
 
 // Toggle light/dark mode
@@ -67,6 +69,32 @@ console.log = (...x) => {
   );
   console._log(...x);
 };
+
+
+function test() {
+  const knowns = [
+      0.08109881677206165,  // baseThirst
+      [0.855381, 0.855382], // buoyancy
+      [0.877, 0.879],       // patheticism
+      null,                 // musclitude
+      null,                 // divinity
+      0.8836552885826778,   // moxie
+      [0.551, 0.553],       // thwackability
+  ];
+  console.log('knowns:', knowns);
+  // s0,s1 at baseThirst generation
+  const expected_solution = [[1496009117674886285n, 15779009155937865159n]];
+  console.log('Running solve(knowns)...');
+  const sol = solve(knowns);
+  console.log(`got solutions: ${sol}`);
+  if (sol.toString() === expected_solution.toString()) {
+    console.log('test success: quack enjoyable!');
+  } else {
+    console.log('test fail');
+  }
+  console.log('');
+}
+
 test();
 
 </script>

@@ -47,8 +47,8 @@ function initial_state_matrices() {
  * Equivalent to Xorshift128+ implementation across matrices of states.
  */
 function xs128p_matrix(state0_matrix, state1_matrix) {
-  state0_matrix = [...state0_matrix];
-  state1_matrix = [...state1_matrix];
+  state0_matrix = state0_matrix.slice();
+  state1_matrix = state1_matrix.slice();
   let [s1, s0] = [state0_matrix, state1_matrix];
   s1 = xor_matrix(s1, lshift_matrix(s1, 23));
   s1 = xor_matrix(s1, rshift_matrix(s1, 17));
@@ -88,7 +88,7 @@ function xor_matrix(matrix1, matrix2) {
  * Reduced Row Echelon Form (RREF) of a matrix
  */
 function rref(matrix, n) {
-  matrix = [...matrix];
+  matrix = matrix.slice();
   const num_rows = matrix.length;
   let next_row = 0;
   for (let col = 0; col < n; col++) {
@@ -174,7 +174,7 @@ function get_mantissa(val) {
 }
 
 function int_to_bits(n, length) {
-  return [...Array(length).keys()].map(i => (n >> BigInt(length - i - 1)) & 1n);
+  return n.toString(2).padStart(length, 0).split('').map(BigInt);
 }
 
 function bits_to_int(bits) {
@@ -250,7 +250,7 @@ function solve(knowns) {
 
   let M = transpose(bits_matrix);
 
-  M = [...Array(128).keys()].map(i => (M[i] << 128n) + (1n << BigInt(127 - i)));
+  M = M.map((row, i) => (row << 128n) + (1n << BigInt(127 - i)));
   M = rref(M, num_known_bits + 128);
   for (let row of M) {
     if (row >> 128n === 0n) {
@@ -323,29 +323,4 @@ function solve(knowns) {
     }
   }
   return solutions;
-}
-
-
-function test() {
-  const knowns = [
-      0.08109881677206165,  // baseThirst
-      [0.855381, 0.855382], // buoyancy
-      [0.877, 0.879],       // patheticism
-      null,                 // musclitude
-      null,                 // divinity
-      0.8836552885826778,   // moxie
-      [0.551, 0.553],       // thwackability
-  ];
-  console.log('knowns:', knowns);
-  // s0,s1 at baseThirst generation
-  const expected_solution = [[1496009117674886285n, 15779009155937865159n]];
-  console.log('Running solve(knowns)...');
-  const sol = solve(knowns);
-  console.log(`got solutions: ${sol}`);
-  if (sol.toString() === expected_solution.toString()) {
-    console.log('test success: quack enjoyable!');
-  } else {
-    console.log('test fail');
-  }
-  console.log('');
 }
