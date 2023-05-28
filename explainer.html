@@ -115,9 +115,9 @@ function test2() {
     // 0.393173677080664,
   ];
   const results = solve_in_math_random_order(outputs);
-  for (let {s0, s1, offset, crossesBlockBoundary} of results) {
+  for (let {state, offset, crossesBlockBoundary} of results) {
     console.log(
-      `https://rng.sibr.dev/?s0=${s0}&s1=${s1}&offset=${offset}`,
+      `https://rng.sibr.dev/?s0=${state[0]}&s1=${state[1]}&offset=${offset}`,
     );
     if (!crossesBlockBoundary) {
       console.log(
