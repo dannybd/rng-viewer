@@ -368,7 +368,7 @@ const BLOCK_SIZE = 64;
  * Returns list of all possible RNG solutions or [] if no solution found
  */
 function solve_in_math_random_order(rolls) {
-  let results = [];
+  let solutions = [];
   for (let offset = 0; offset < Math.min(rolls.length, BLOCK_SIZE); offset++) {
     let knowns = [];
     let block = [];
@@ -386,21 +386,21 @@ function solve_in_math_random_order(rolls) {
       block.unshift(...Array(BLOCK_SIZE - block.length).fill(null));
       knowns.push(...block);
     }
-    let localResults = solve_in_rng_order(knowns);
-    if (!localResults.length) {
+    let states = solve_in_rng_order(knowns);
+    if (!states.length) {
       continue;
     }
-    for (let result of localResults) {
+    for (let state of states) {
       for (let i = 0; i < (offset || BLOCK_SIZE) - 1; i++) {
-        result = xs128p(...result);
+        state = xs128p(...state);
       }
-      results.push({
-        s0: result[0],
-        s1: result[1],
+      solutions.push({
+        state: state,
         offset: (offset || BLOCK_SIZE) - 1,
+        roll: state_to_double(state[0]),
         crossesBlockBoundary: knowns.length > BLOCK_SIZE,
       });
     }
   }
-  return results;
+  return solutions;
 }
