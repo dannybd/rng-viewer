@@ -254,7 +254,10 @@ function modulo(x, n) {
 
 function tryBigInt(val) {
   try {
-    return BigInt(val);
+    if (val === null) {
+      return null;
+    }
+    return BigInt(val.replace(/n$/, ''));
   } catch (_) {
     return null;
   }
@@ -301,10 +304,13 @@ const rollType = {
 let LMNOPQR = {};
 
 const search = new URLSearchParams(window.location.search);
-const s0 = tryBigInt(search.get('s0'));
-const s1 = tryBigInt(search.get('s1'));
+const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>\d+))?$/;
+
+const {groups: state} = coordRegex.exec(search.get('state')) || {};
+const s0 = tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));
+const s1 = tryBigInt(state?.s1) ?? tryBigInt(search.get('s1'));
+const offset = parseInt(tryBigInt(state?.offset || search.get('offset') || 0n) ?? 0);
 const blocks = parseInt(tryBigInt(search.get('blocks') || 3n));
-const offset = parseInt(tryBigInt(search.get('offset') || 0n));
 if (s0 === null || s1 === null) {
   $('#loading').hide();
   $('#results thead').hide();

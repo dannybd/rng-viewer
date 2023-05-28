@@ -343,6 +343,8 @@ function solve_in_rng_order(knowns) {
 }
 
 
+const BLOCK_SIZE = 64;
+
 /**
  * Math.random() generates blocks of 64 values, and then reverses them:
  *
@@ -357,9 +359,14 @@ function solve_in_rng_order(knowns) {
  *    block 2, roll 62      the prior one which Math.random() outputted
  *    block 2, roll 61
  *
+ * rolls: list of constraints for consecutive Math.random() float outputs
+ * Each roll can be:
+ *     float               [known value between 0.0 and 1.0]
+ *     (float, float)      [known range of (low, high) values]
+ *     or None             [no constraint for this output]
+ *
+ * Returns list of all possible RNG solutions or [] if no solution found
  */
-const BLOCK_SIZE = 64;
-
 function solve_in_math_random_order(rolls) {
   let results = [];
   for (let offset = 0; offset < Math.min(rolls.length, BLOCK_SIZE); offset++) {
