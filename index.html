@@ -310,7 +310,7 @@ const {groups: state} = coordRegex.exec(search.get('state')) || {};
 const s0 = tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));
 const s1 = tryBigInt(state?.s1) ?? tryBigInt(search.get('s1'));
 const offset = parseInt(tryBigInt(state?.offset || search.get('offset') || 0n) ?? 0);
-const blocks = parseInt(tryBigInt(search.get('blocks')) ?? 3n));
+const blocks = parseInt(tryBigInt(search.get('blocks')) ?? 3n);
 if (s0 === null || s1 === null) {
   $('#loading').hide();
   $('#results thead').hide();
