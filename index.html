@@ -279,10 +279,9 @@ __MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
   MANUAL_LMNOPQR[val].push(entry);
 });
 
-const jsonURL = location.protocol === 'https:'
-  ? 'static/lmnopqr.json'
-  : 'https://rng.sibr.dev/static/lmnopqr.json';
-$.get(jsonURL, data => {
+const jsonURLPrefix =
+  location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
+$.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   LMNOPQR = data;
   for (val in MANUAL_LMNOPQR) {
     if (!LMNOPQR[val]) {
@@ -336,39 +335,39 @@ function findOrientation(maxDistance, direction=0) {
     console.error('Missing KNOWN_BLOCKS!');
     return null;
   }
-  const runBackwards = direction <= 0;
-  const runForwards = direction >= 0;
-  let back0 = forw0 = s0;
-  let back1 = forw1 = s1;
+  const shouldRunBackwards = direction <= 0;
+  const shouldRunForwards = direction >= 0;
+  let backRng = new Rng([s0, s1], offset);
+  let forwRng = new Rng([s0, s1], offset);
   let backKey = forwKey = null;
   for (let rolls = 0; rolls < maxDistance; rolls++) {
-    if (runBackwards) {
-      backKey = `${back0},${back1}`;
+    if (shouldRunBackwards) {
+      backKey = `${backRng.state[0]},${backRng.state[1]}`;
       if (KNOWN_BLOCKS[backKey]) {
         KNOWN_ORIENTATION = {
-          rngDistance: -1 * rolls,
+          rollDistance: -1 * rolls,
           correctedOffset: modulo(rolls, 64),
-          foundBlockS0: back0,
-          foundBlockS1: back1,
+          foundBlockS0: backRng.state[0],
+          foundBlockS1: backRng.state[1],
           fragment: KNOWN_BLOCKS[backKey],
         };
-        break;
+        return KNOWN_ORIENTATION;
       }
-      [back0, back1] = xs128p_backward(back0, back1);
+      backRng.prev();
     }
-    if (runForwards) {
-      forwKey = `${forw0},${forw1}`;
+    if (shouldRunForwards) {
+      forwKey = `${forwRng.state[0]},${forwRng.state[1]}`;
       if (KNOWN_BLOCKS[forwKey]) {
         KNOWN_ORIENTATION = {
-          rngDistance: rolls,
+          rollDistance: rolls,
           correctedOffset: modulo(-1 * rolls, 64),
-          foundBlockS0: forw0,
-          foundBlockS1: forw1,
+          foundBlockS0: forwRng.state[0],
+          foundBlockS1: forwRng.state[1],
           fragment: KNOWN_BLOCKS[forwKey],
         };
-        break;
+        return KNOWN_ORIENTATION;
       }
-      [forw0, forw1] = xs128p(forw0, forw1);
+      forwRng.next();
     }
   }
   return KNOWN_ORIENTATION;
@@ -382,7 +381,7 @@ whereami.onclick = _ => {
   whereami.innerText = 'Searching...';
   whereami.disabled = true;
   if (!KNOWN_BLOCKS) {
-    $.getJSON('static/known-blocks.json', data => {
+    $.getJSON(jsonURLPrefix + 'static/known-blocks.json', data => {
       KNOWN_BLOCKS = data;
       displayWhereAmI();
     });
@@ -405,11 +404,14 @@ function displayWhereAmI() {
     maxDistance *= 10;
     return;
   }
-  const {rngDistance, correctedOffset, fragment} = orientation;
+  const {rollDistance, correctedOffset, fragment} = orientation;
   let message = `You are looking at part of the "${fragment}" fragment.`;
-  const blockDist = Math.floor(Math.abs(rngDistance / 64) - 1); // TODO: is this right?
-  message += `\nThe nearest known anchor for that fragment is ` +
-    `${blockDist} ${blockDist === 1 ? 'block' : 'blocks'} ${rngDistance < 0 ? 'behind' : 'ahead'}.`;
+  if (rollDistance < 64) {
+    message += '\nThe nearest known anchor is within a block!';
+  } else {
+    message += `\nThe nearest known anchor for that fragment is ` +
+      `${rollDistance} rolls ${rollDistance < 0 ? 'behind' : 'ahead'}.`;
+  }
   if (correctedOffset === offset) {
     message += `\nYou are oriented correctly with the known fragment.`;
     alert(message);
