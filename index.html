@@ -110,7 +110,8 @@ function dump_around(s0, s1, blocks, offset) {
 }
 
 function permalink(s0, s1, offset) {
-  return `?state=(${s0},${s1})+${offset}`;
+  const blocksParam = blocks !== 3 ? `&blocks=${blocks}` : '';
+  return `?state=(${s0},${s1})+${offset}` + blocksParam;
 }
 
 const formURL = 'https://docs.google.com/forms/d/e/1FAIpQLSebCplJCYPV49ixCXvnJ7MejF8h8dPvJNLeYQRmesiaZ_hThQ/viewform?usp=pp_url&entry.29853088=';
