@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="static/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
   <script src="static/manual-lmnopqr.js"></script>
+  <script src="static/rng-solver.js"></script>
   <!--
   <meta property="theme-color" content="#000000">
   <meta property="og:type" content="website">
@@ -97,98 +98,19 @@ const BOOKMARKS = [
   ['Sao Paulo Parrots (@ Anabela Henriques thwack)', 18216982414311324831n, 17042059152575397257n, 2],
 ];
 
-// Built as closely as possible to the Python implementation in Astrid's gist:
-// https://gist.github.com/xSke/c9d20dd09e640e33152c5f504582e1d9/
-
-const MASK = BigInt('0xFFFFFFFFFFFFFFFF');
-
-function reverse17(val) {
-  return val ^ (val >> 17n) ^ (val >> 34n) ^ (val >> 51n);
-}
-
-function reverse23(val) {
-  return (val ^ (val << 23n) ^ (val << 46n)) & MASK;
-}
-
-function xs128p(state0, state1) {
-  let s1 = state0 & MASK;
-  let s0 = state1 & MASK;
-  s1 ^= (s1 << 23n) & MASK;
-  s1 ^= (s1 >> 17n) & MASK;
-  s1 ^= s0 & MASK;
-  s1 ^= (s0 >> 26n) & MASK;
-  state0 = state1 & MASK;
-  state1 = s1 & MASK;
-  return [state0, state1];
-}
-
-function xs128p_backward(state0, state1) {
-  let prev_state1 = state0;
-  let prev_state0 = state1 ^ (state0 >> 26n);
-  prev_state0 = prev_state0 ^ state0;
-  prev_state0 = reverse17(prev_state0);
-  prev_state0 = reverse23(prev_state0);
-  return [prev_state0, prev_state1];
-}
-
-const struct = {
-  // Replicates python3's struct.pack('<Q', data)
-  pack: bigint => {
-    let bytes = [];
-    while (bigint > 0) {
-      bytes.push(parseInt(bigint & 255n));
-      bigint >>= 8n;
-    }
-    return bytes;
-  },
-
-  // Replicates python3's struct.unpack('d', data)
-  unpack: bytes => {
-    const buffer = new ArrayBuffer(bytes.length);
-    const view = new DataView(buffer);
-    bytes = bytes.slice().reverse();
-    bytes.forEach((byte, i) => view.setUint8(i, byte));
-    return view.getFloat64();
-  },
-};
-
-function to_double(out) {
-  let double_bits = ((out & MASK) >> 12n) | BigInt('0x3FF0000000000000');
-  return struct.unpack(struct.pack(double_bits)) - 1;
-}
-
-function generate_block(s0, s1, size) {
-  size = _fallback(size, 64);
-  block = [];
-  for (let i = 0; i < size; i++) {
-    [s0, s1] = xs128p(s0, s1);
-    block.push([s0, s1, to_double(s0)]);
-  }
-  block.reverse();
-  return [s0, s1, block];
-}
-
-function step_backwards(s0, s1, amount) {
-  for (let i = 0; i < amount; i++) {
-    [s0, s1] = xs128p_backward(s0, s1);
-  }
-  return [s0, s1];
-}
-
 function dump_around(s0, s1, blocks, offset) {
-  blocks = _fallback(blocks, 3);
-  offset = _fallback(offset, 0);
-  [s0, s1] = step_backwards(s0, s1, 64 * blocks + offset + 1);
+  const rng = new Rng([s0, s1], offset);
+  rng.step(-64 * (blocks + 1) + offset);
   const rows = [];
-  for (let i = 0; i < blocks * 2; i++) {
-    [s0, s1, block] = generate_block(s0, s1);
-    rows.push(...block);
+  for (let i = 0; i < (blocks * 2 + 1) * 64; i++) {
+    rng.next();
+    rows.push([...rng.state, rng.value()]);
   }
   return rows;
 }
 
 function permalink(s0, s1, offset) {
-  return `?s0=${s0}&s1=${s1}&offset=${offset}`;
+  return `?state=(${s0},${s1})+${offset}`;
 }
 
 const formURL = 'https://docs.google.com/forms/d/e/1FAIpQLSebCplJCYPV49ixCXvnJ7MejF8h8dPvJNLeYQRmesiaZ_hThQ/viewform?usp=pp_url&entry.29853088=';
@@ -243,9 +165,6 @@ function make_row(n, s0, s1, val) {
     <td class="notes">${notes}</td>
     <td></td>
   </tr>`;
-}
-function _fallback(val, _default) {
-  return val !== undefined ? val : _default;
 }
 
 function modulo(x, n) {
@@ -360,7 +279,10 @@ __MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
   MANUAL_LMNOPQR[val].push(entry);
 });
 
-$.get('static/lmnopqr.json', data => {
+const jsonURL = location.protocol === 'https:'
+  ? 'static/lmnopqr.json'
+  : 'https://rng.sibr.dev/static/lmnopqr.json';
+$.get(jsonURL, data => {
   LMNOPQR = data;
   for (val in MANUAL_LMNOPQR) {
     if (!LMNOPQR[val]) {
@@ -406,7 +328,7 @@ $.get('static/lmnopqr.json', data => {
 let KNOWN_BLOCKS = null;
 let KNOWN_ORIENTATION = null;
 
-function findOrientation(maxDistance, direction) {
+function findOrientation(maxDistance, direction=0) {
   if (KNOWN_ORIENTATION) {
     return KNOWN_ORIENTATION;
   }
@@ -414,7 +336,6 @@ function findOrientation(maxDistance, direction) {
     console.error('Missing KNOWN_BLOCKS!');
     return null;
   }
-  direction = _fallback(direction, 0);
   const runBackwards = direction <= 0;
   const runForwards = direction >= 0;
   let back0 = forw0 = s0;
@@ -503,9 +424,7 @@ function displayWhereAmI() {
   }
 }
 
-function addToFragment(fragmentName, maxBlockDist) {
-  maxBlockDist = _fallback(maxBlockDist, 50);
-
+function addToFragment(fragmentName, maxBlockDist=50) {
   const blocks = [];
   let backBlock = forwBlock = [...Array(offset)].reduce(
     coord => xs128p_backward(...coord),
@@ -524,16 +443,14 @@ function printAddToFragment(fragmentName, maxBlockDist) {
   console.log(JSON.stringify(addToFragment(fragmentName, maxBlockDist), null, '  '));
 }
 
-function findEventBoundary(maxDist, findEnd) {
-  maxDist = _fallback(maxDist, 1e6);
-  findEnd = _fallback(findEnd, true);
+function findEventBoundary(maxDist=1e6, findEnd=true) {
   const xs128p_method = findEnd ? xs128p : xs128p_backward;
   const start = window.performance.now();
   let coord = [s0, s1];
   let lastMatch = {coord, dist: 0};
   let numMatches = 0;
   for (let dist = 0; dist < maxDist; dist++) {
-    if (LMNOPQR[to_double(coord[0])]) {
+    if (LMNOPQR[state_to_double(coord[0])]) {
       lastMatch = {coord, dist};
       numMatches++;
     }
