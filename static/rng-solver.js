@@ -94,19 +94,25 @@ function rref(matrix, n) {
   for (let col = 0; col < n; col++) {
     let column_bitmask = 1n << BigInt(n - 1 - col);
     for (let row = next_row; row < num_rows; row++) {
-      if (matrix[row] & column_bitmask) {
-        [matrix[row], matrix[next_row]] = [matrix[next_row], matrix[row]];
-        for (let i = 0; i < num_rows; i++) {
-          if (i !== next_row && (matrix[i] & column_bitmask)) {
-            matrix[i] ^= matrix[next_row];
-          }
-        }
-        next_row++;
-        if (next_row === num_rows) {
-          return matrix;
-        }
-        break;
+      if (!(matrix[row] & column_bitmask)) {
+        continue;
       }
+      // Flip rows
+      [matrix[row], matrix[next_row]] = [matrix[next_row], matrix[row]];
+      for (let i = 0; i < num_rows; i++) {
+        if (i === next_row) {
+          continue;
+        }
+        // XOR all rows except next row
+        if (matrix[i] & column_bitmask) {
+          matrix[i] ^= matrix[next_row];
+        }
+      }
+      next_row++;
+      if (next_row === num_rows) {
+        return matrix;
+      }
+      break;
     }
   }
   return matrix;
