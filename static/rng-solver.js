@@ -411,3 +411,66 @@ function solve_in_math_random_order(rolls) {
   }
   return solutions;
 }
+
+class Rng {
+  constructor(state, offset) {
+    this.state = state;
+    this.offset = offset;
+  }
+
+  static fromStateStr(str) {
+    const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>\d+))?$/;
+    const {groups: state} = coordRegex.exec(str);
+    if (!state) {
+      return null;
+    }
+    return new Rng(
+      [BigInt(state.s0), BigInt(state.s1)],
+      parseInt(state.offset),
+    );
+  }
+
+  getStateStr() {
+    return `(${this.state[0]},${this.state[1]})+${this.offset}`;
+  }
+
+  getStateURL() {
+    return `https://rng.sibr.dev/?state=${this.getStateStr()}`;
+  }
+
+  value() {
+    return state_to_double(this.state[0]);
+  }
+
+  next() {
+    return this.step(1);
+  }
+
+  prev() {
+    return this.step(-1);
+  }
+
+  step(steps) {
+    this.offset -= steps;
+
+    while (this.offset < 0) {
+      this.#stepRaw(128);
+      this.offset += 64;
+    }
+
+    while (this.offset >= 64) {
+      this.#stepRaw(-128);
+      this.offset -= 64;
+    }
+
+    this.#stepRaw(-steps);
+    return this.value();
+  }
+
+  #stepRaw(amount) {
+    const stepper = amount > 0 ? xs128p : xs128p_backward;
+    for (let i = 0; i < Math.abs(amount); i++) {
+      this.state = stepper(...this.state);
+    }
+  }
+}

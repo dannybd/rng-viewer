@@ -44,18 +44,6 @@ $('#lightdark').click(_ => {
   document.body.classList.toggle('theme-light');
 });
 
-const knowns = [
-    0.08109881677206165,  // baseThirst
-    [0.855381, 0.855382], // buoyancy
-    [0.877, 0.879],       // patheticism
-    null,                 // musclitude
-    null,                 // divinity
-    0.8836552885826778,   // moxie
-    [0.551, 0.553],       // thwackability
-];
-// s0,s1 at baseThirst generation
-const expected_solution = [[1496009117674886285n, 15779009155937865159n]];
-
 $('#loading').hide();
 console._log = console.log;
 console.log = (...x) => {
@@ -84,7 +72,7 @@ function test() {
   console.log('knowns:', knowns);
   // s0,s1 at baseThirst generation
   const expected_solution = [[1496009117674886285n, 15779009155937865159n]];
-  console.log('Running solve(knowns)...');
+  console.log('Running solve_in_rng_order(knowns)...');
   const sol = solve_in_rng_order(knowns);
   console.log(`got solutions: ${sol}`);
   if (sol.toString() === expected_solution.toString()) {
@@ -100,26 +88,57 @@ test();
 function test2() {
   // https://rng.sibr.dev/?state=(15779009155937865159,16202637166048270229)+4
   // In Math.random() output order!
-  const outputs = [
-    0.8553818003268248,
-    0.08109881677206165,
-    0.4331553731381861,
+  const rolls = [
+    // 0.8553818003268248,
+    // 0.08109881677206165,
+    // 0.4331553731381861,
     0.1805283222757248,
     0.9168731767791545,
     // split block
     0.2637553293627233,
-    0.9692475075808971,
+    // 0.9692475075808971,
     // 0.034293735113851476,
     // 0.6220975442089625,
     // 0.13177880189820135,
     // 0.393173677080664,
   ];
-  const results = solve_in_math_random_order(outputs);
+  console.log('rolls:', rolls);
+  console.log('Running solve_in_math_random_order(rolls)...');
+  const results = solve_in_math_random_order(rolls);
   for (let {state, offset, crossesBlockBoundary} of results) {
-    console.log(
-      `https://rng.sibr.dev/?state=(${state[0]},${state[1]})+${offset}`,
-    );
+    let rng = new Rng(state, offset);
+    let url = rng.getStateURL();
+    console.log(`got solution: <a target="_blank" href="${url}">${url}</a>`);
+    console.log('Predicted next value:', rng.step(rolls.length));
+    console.log('   Actual next value: 0.9692475075808971');
     if (!crossesBlockBoundary) {
+      console.log(
+        'Warning, does not cross a block boundary, so may be mis-aligned!',
+      );
+    }
+  }
+  console.log('');
+}
+
+test2();
+
+function test3() {
+  for (let i = 0; i < 64 * Math.random(); i++) {
+    Math.random();
+  }
+  console.log('Finding current Math.random() state...');
+  const rolls = [...Array(64).keys()].map(Math.random);
+  console.log(`> testing with ${rolls.length} rolls:`, rolls);
+  const results = solve_in_math_random_order(rolls);
+  for (let {state, offset, crossesBlockBoundary} of results) {
+    let rng = new Rng(state, offset);
+    let url = rng.getStateURL();
+    console.log(`got solution: <a target="_blank" href="${url}">${url}</a>`);
+    console.log('Predicted next Math.random() value:', rng.step(rolls.length));
+    console.log('   Actual next Math.random() value:', Math.random());
+    if (crossesBlockBoundary) {
+      console.log('Crosses block boundary, it is aligned!');
+    } else {
       console.log(
         'Warning, does not cross a block boundary, so may be mis-aligned!',
       );
@@ -127,7 +146,7 @@ function test2() {
   }
 }
 
-test2();
+test3();
 
 </script>
 </body>
