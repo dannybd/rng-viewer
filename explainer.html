@@ -98,7 +98,7 @@ function test() {
 test();
 
 function test2() {
-  // https://rng.sibr.dev/?s0=1496009117674886285&s1=15779009155937865159&offset=3
+  // https://rng.sibr.dev/?state=(15779009155937865159,16202637166048270229)+4
   // In Math.random() output order!
   const outputs = [
     0.8553818003268248,
@@ -107,8 +107,8 @@ function test2() {
     0.1805283222757248,
     0.9168731767791545,
     // split block
-    // 0.2637553293627233,
-    // 0.9692475075808971,
+    0.2637553293627233,
+    0.9692475075808971,
     // 0.034293735113851476,
     // 0.6220975442089625,
     // 0.13177880189820135,
@@ -117,7 +117,7 @@ function test2() {
   const results = solve_in_math_random_order(outputs);
   for (let {state, offset, crossesBlockBoundary} of results) {
     console.log(
-      `https://rng.sibr.dev/?s0=${state[0]}&s1=${state[1]}&offset=${offset}`,
+      `https://rng.sibr.dev/?state=(${state[0]},${state[1]})+${offset}`,
     );
     if (!crossesBlockBoundary) {
       console.log(
