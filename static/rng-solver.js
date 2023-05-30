@@ -92,11 +92,12 @@ function rref(matrix, n) {
   const num_rows = matrix.length;
   let next_row = 0;
   for (let col = 0; col < n; col++) {
+    let column_bitmask = 1n << BigInt(n - 1 - col);
     for (let row = next_row; row < num_rows; row++) {
-      if ((matrix[row] >> BigInt(n - 1 - col)) & 1n) {
+      if (matrix[row] & column_bitmask) {
         [matrix[row], matrix[next_row]] = [matrix[next_row], matrix[row]];
         for (let i = 0; i < num_rows; i++) {
-          if (i !== next_row && (matrix[i] >> BigInt(n - 1 - col)) & 1n) {
+          if (i !== next_row && (matrix[i] & column_bitmask) {
             matrix[i] ^= matrix[next_row];
           }
         }
