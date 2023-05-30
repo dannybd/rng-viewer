@@ -97,7 +97,7 @@ function rref(matrix, n) {
       if (matrix[row] & column_bitmask) {
         [matrix[row], matrix[next_row]] = [matrix[next_row], matrix[row]];
         for (let i = 0; i < num_rows; i++) {
-          if (i !== next_row && (matrix[i] & column_bitmask) {
+          if (i !== next_row && (matrix[i] & column_bitmask)) {
             matrix[i] ^= matrix[next_row];
           }
         }
