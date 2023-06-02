@@ -1,7 +1,15 @@
 // Built as closely as possible to the Python implementation here:
 // https://github.com/xSke/resim/blob/main/rng_solver.py
 
-const MASK = 0xFFFFFFFFFFFFFFFFn;
+// Each state is a 64-bit integer
+const STATE_WIDTH = 64n;
+// Solution space is two states wide, so 128
+const SOLUTION_WIDTH = 2n * STATE_WIDTH;
+// 128x128 identity matrix, precomputed
+const IDENTITY128 = [...Array(Number(SOLUTION_WIDTH)).keys()]
+  .map(i => 1n << BigInt(Number(SOLUTION_WIDTH) - 1 - i));
+const STATE_MASK = 0xFFFFFFFFFFFFFFFFn;
+const SOLUTION_MASK = STATE_MASK << STATE_WIDTH | STATE_MASK;
 const MAX_KERNEL_BASIS_SIZE = 20;
 
 
@@ -14,33 +22,22 @@ function state_matrices(i) {
     return __STATE_MATRICES_CACHE[i];
   }
   if (i === 0) {
-    // Start with initial state
-    return initial_state_matrices();
+    // As bits, initial state matrices are the top and bottom halves
+    // of a 128x128 identity matrix. At a smaller scale they look like this:
+    //
+    //                     state0              state1
+    //
+    //                    10000000            00001000
+    //                    01000000            00000100
+    //                    00100000            00000010
+    //                    00010000            00000001
+    return [
+      IDENTITY128.slice(0, Number(STATE_WIDTH)),
+      IDENTITY128.slice(Number(STATE_WIDTH)),
+    ];
   }
   __STATE_MATRICES_CACHE[i] = xs128p_matrix(...state_matrices(i - 1));
   return __STATE_MATRICES_CACHE[i];
-}
-
-/**
- * As bits, initial state matrices look like weird offset identity matrices.
- *  The results are 128 bits wide and 64 rows tall, but at a smaller scale
- *  they look like this:
- *
- *                       state0              state1
- *
- *                      10000000            00001000
- *                      01000000            00000100
- *                      00100000            00000010
- *                      00010000            00000001
- */
-function initial_state_matrices() {
-  const state0 = [];
-  const state1 = [];
-  for (let i = 0n; i < 64n; i++) {
-    state0.push(1n << (127n - i));
-    state1.push(1n << (127n - (64n + i)));
-  }
-  return [state0, state1];
 }
 
 /**
@@ -87,12 +84,12 @@ function xor_matrix(matrix1, matrix2) {
 /**
  * Reduced Row Echelon Form (RREF) of a matrix
  */
-function rref(matrix, n) {
+function rref(matrix, num_cols) {
   matrix = matrix.slice();
   const num_rows = matrix.length;
   let next_row = 0;
-  for (let col = 0; col < n; col++) {
-    let column_bitmask = 1n << BigInt(n - 1 - col);
+  for (let col = 0; col < num_cols; col++) {
+    let column_bitmask = 1n << BigInt(num_cols - 1 - col);
     for (let row = next_row; row < num_rows; row++) {
       if (!(matrix[row] & column_bitmask)) {
         continue;
@@ -119,19 +116,87 @@ function rref(matrix, n) {
 }
 
 /**
- * Transposes a bit matrix. Assumes the input matrix is 128 bits wide.
+ * Transposes a bit matrix.
+ * Assumes the input matrix is 128 bits wide, so the output is 128 rows tall.
  */
 function transpose(matrix) {
-  const num_rows = matrix.length;
+  const num_rows = BigInt(matrix.length);
   const flipped = [];
-  for (let i = 0; i < 128; i++) {
+  for (let i = 0n; i < SOLUTION_WIDTH; i++) {
     let cell = 0n;
-    for (let j = 0; j < num_rows; j++) {
-      cell += ((matrix[j] >> BigInt(127 - i)) & 1n) << BigInt(num_rows - 1 - j);
+    for (let j = 0n; j < num_rows; j++) {
+      let bit = (matrix[j] >> (SOLUTION_WIDTH - 1n - i)) & 1n;
+      cell |= bit << (num_rows - 1n - j);
     }
     flipped.push(cell);
   }
   return flipped;
+}
+
+
+/**
+ * Find kernel basis (homogeneous solutions)
+ * https://en.wikipedia.org/wiki/Kernel_(linear_algebra)#Computation_by_Gaussian_elimination
+ */
+function get_kernel_basis(bits_from_states) {
+  // bits_from_states is 128 cols wide and (# known bits) rows tall
+  // transpose it to 128 rows tall, and (# known bits) cols wide
+  let M = transpose(bits_from_states);
+
+  // Augment our matrix from M to [M|I], where I is the 128x128 identity matrix
+  M = M.map((row, i) => (row << SOLUTION_WIDTH) | IDENTITY128[i]);
+
+  // RREF to effectively solve the system of equations
+  M = rref(M, bits_from_states.length + Number(SOLUTION_WIDTH));
+
+  const kernel_basis = [];
+  for (let row of M) {
+    if (row >> SOLUTION_WIDTH) {
+      continue;
+    }
+    kernel_basis.push(row & SOLUTION_MASK);
+  }
+
+  const size = kernel_basis.length;
+  if (size > 0) {
+    console.log(`WARNING: ${2**size} (2^${size}) potential solutions`);
+  }
+
+  return kernel_basis;
+}
+
+/**
+ * Solve for the particular solution based on the bits
+ * in the states and knowns. If this hits a contradiction
+ * then there's no solveable solution within the knowns provided.
+ */
+function get_particular_solution(bits_from_states, bits_from_knowns) {
+  // Augment our matrix to [S|K], where S = states and K = knowns
+  M = bits_from_states.map((row, i) => (row << 1n) | bits_from_knowns[i]);
+
+  // RREF to effectively solve the system of equations
+  // Since S is 128 wide and K is 1 wide, the effective width of M is 129
+  M = rref(M, Number(SOLUTION_WIDTH) + 1);
+
+  // BigInt holding the 128 bits of the solution
+  let solution = 0n;
+  for (let i = 0; i < M.length; i++) {
+    let row = M[i];
+    if (row === 0n) {
+      // Reached the rows of the RREF'd matrix which are 0, so stop
+      break;
+    }
+    if (row === 1n) {
+      // Contradiction found; no solution
+      return null;
+    }
+    if (row & 1n) {
+      solution |= 1n << BigInt(bit_length(row) - 2);
+      solution |= IDENTITY128[IDENTITY128.length + 1 - bit_length(row)];
+    }
+  }
+
+  return solution;
 }
 
 /**
@@ -154,14 +219,14 @@ function* powerset(array, offset = 0) {
  * Xorshift128+ implementation
  */
 function xs128p(state0, state1) {
-  let s1 = state0 & MASK;
-  let s0 = state1 & MASK;
-  s1 ^= (s1 << 23n) & MASK;
-  s1 ^= (s1 >> 17n) & MASK;
-  s1 ^= s0 & MASK;
-  s1 ^= (s0 >> 26n) & MASK;
-  state0 = state1 & MASK;
-  state1 = s1 & MASK;
+  let s1 = state0 & STATE_MASK;
+  let s0 = state1 & STATE_MASK;
+  s1 ^= (s1 << 23n) & STATE_MASK;
+  s1 ^= (s1 >> 17n) & STATE_MASK;
+  s1 ^= s0 & STATE_MASK;
+  s1 ^= (s0 >> 26n) & STATE_MASK;
+  state0 = state1 & STATE_MASK;
+  state1 = s1 & STATE_MASK;
   return [state0, state1];
 }
 
@@ -179,7 +244,7 @@ function reverse17(val) {
 }
 
 function reverse23(val) {
-  return (val ^ (val << 23n) ^ (val << 46n)) & MASK;
+  return (val ^ (val << 23n) ^ (val << 46n)) & STATE_MASK;
 }
 
 function state_to_double(s0) {
@@ -190,7 +255,7 @@ function state_to_double(s0) {
 
 function get_mantissa(val) {
   if (val === 1.0) {
-    return MASK >> 12n;
+    return STATE_MASK >> 12n;
   }
   const dataView = new DataView((new Float64Array(1)).buffer);
   dataView.setFloat64(0, 1 + val);
@@ -205,9 +270,9 @@ function bits_to_int(bits) {
   return parseInt(bits.join(''), 2);
 }
 
-function print_matrix(M, n) {
+function print_matrix(M, num_cols) {
   for (let row of M) {
-    console.log(M.toString(2).padStart(n, '0'));
+    console.log(M.toString(2).padStart(num_cols, '0'));
   }
   console.log('');
 }
@@ -234,115 +299,115 @@ function solve_in_rng_order(knowns) {
    * Returns list of all possible solutions (s0, s1), or [] if no solution found
    */
 
-  const bits = [];
-  const bits_matrix = [];
+  // bits_from_knowns holds the individual bits we are confident in
+  // from the knowns provided. It's effectively an 1xN bit matrix
+  const bits_from_knowns = [];
+  // bits_from_states holds the complementary bits from the state matrices
+  // which we're iterating over as we step to each known. 128xN bit matrix
+  const bits_from_states = [];
 
   for (let i = 0; i < knowns.length; i++) {
     let known = knowns[i];
     let [state0_matrix, _] = state_matrices(i);
     if (typeof(known) === 'number') {
       let mantissa = get_mantissa(known);
-      let known_bits = 52;
-      let mantissa_bits = int_to_bits(mantissa, known_bits);
-      bits.push(...mantissa_bits);
-      bits_matrix.push(...state0_matrix.slice(0, known_bits));
+      // If the known is a float, then we capture and gain
+      // all 52 bits of entropy from that float's mantissa
+      let num_bits = 52;
+      let mantissa_bits = int_to_bits(mantissa, num_bits);
+      // Store all of the mantissa's bits from the knowns
+      bits_from_knowns.push(...mantissa_bits);
+      // Store all of the bit matrix rows from the states
+      bits_from_states.push(...state0_matrix.slice(0, num_bits));
     } else if (Array.isArray(known)) {
       let [lo, hi] = known;
       let lo_mantissa = get_mantissa(lo);
       let hi_mantissa = get_mantissa(hi);
-      known_bits = 52 - bit_length(lo_mantissa ^ hi_mantissa);
-      bits.push(
-        ...int_to_bits(
-          lo_mantissa >> BigInt(52 - known_bits),
-          known_bits,
-        ),
+      // If the known is a float range, then we capture the high bits
+      // which are stable between the mantissae of the range's bounds
+      num_bits = 52 - bit_length(lo_mantissa ^ hi_mantissa);
+      // Store those stable high bits from the mantissa of the knowns
+      bits_from_knowns.push(
+        ...int_to_bits(lo_mantissa >> BigInt(52 - num_bits), num_bits),
       );
-      bits_matrix.push(...state0_matrix.slice(0, known_bits));
+      // Store the same number of bit matrix rows from the states
+      bits_from_states.push(...state0_matrix.slice(0, num_bits));
     } else if (known === null) {
       // This is fine, just no bits of info are added
       continue;
     } else {
-      throw new Error(`Unknown type for known ${known}`);
+      throw new Error(`Unknown type '${typeof(known)}' for known ${known}`);
     }
   }
 
-  const num_known_bits = bits.length;
-  // console.log('solving...');
-
-  // find kernel basis (homogeneous solutions)
-  const kernel_basis = [];
-
-  let M = transpose(bits_matrix);
-
-  M = M.map((row, i) => (row << 128n) + (1n << BigInt(127 - i)));
-  M = rref(M, num_known_bits + 128);
-  for (let row of M) {
-    if (row >> 128n === 0n) {
-      kernel_basis.push(row & ((1n << 128n) - 1n));
-    }
+  // Find the particular solution, if one exists, of the states and knowns
+  const particular_solution = get_particular_solution(
+    bits_from_states,
+    bits_from_knowns,
+  );
+  if (particular_solution === null) {
+    // Contradiction found, no solutions
+    return [];
   }
 
+  // The kernel basis is a list of bit combos, derived from
+  // the state0 matrices, which represent the permutable space
+  // of possible homogeneous solutions. If we have enough known bits
+  // of information, then the basis will have a small (or even 0)
+  // length, and we won't need to check a bunch of permutations
+  // beyond the particular solution we just found.
+  const kernel_basis = get_kernel_basis(bits_from_states);
 
-  const kernel_basis_size = kernel_basis.length;
-  if (kernel_basis_size > 0) {
-    console.log(
-      `WARNING: ${2**kernel_basis_size} ` +
-      `(2^${kernel_basis_size}) potential solutions`,
-    );
-    if (kernel_basis_size > MAX_KERNEL_BASIS_SIZE) {
-      console.log('too many to bruteforce, giving up :(');
-      return [];
-    }
+  if (kernel_basis.length > MAX_KERNEL_BASIS_SIZE) {
+    console.log('too many to bruteforce, giving up :(');
+    return [];
   }
 
-  // find particular solution
-  M = bits_matrix.map((n, i) => (n << 1n) + bits[i]);
-  M = rref(M, 129);
-
-  let particular_solution = 0n;
-  for (let row of M) {
-    if (row === 0n) {
-      break;
-    }
-    if (row === 1n) {
-      // console.log('ERROR: contradiction found, no solution!');
-      return [];
-    }
-    particular_solution += (row & 1n) << BigInt(bit_length(row) - 2);
-  }
-
+  // Now to check and save good solutions which satisfy our knowns
   const solutions = [];
 
   for (let homogeneous_solutions of powerset(kernel_basis)) {
+    // Start with the particular solution we found for our states and knowns
     let solution = particular_solution;
+    // Then XOR that particular solution with a permutation of
+    // possible homogeneous solutions found in the kernel basis step
     for (let vec of homogeneous_solutions) {
       solution ^= vec;
     }
+
+    // Our solution is a 128-bit-wide integer.
+    // The high and low 64 bits are s0 & s1, respectively
     let s0 = solution >> 64n;
     let s1 = solution & ((1n << 64n) - 1n);
     let candidate_solution = [s0, s1];
-    // test solution
+
+    // Now test this solution state (s0, s1) against our knowns,
+    // iterating the state for each known and comparing the float
+    // associated with that state against the known constraints
     let solution_is_good = true;
     for (let known of knowns) {
       let value = state_to_double(s0);
       if (typeof(known) === 'number') {
         if (known !== value) {
+          // Floats don't match, try next candidate
           solution_is_good = false;
           break;
         }
       } else if (Array.isArray(known)) {
         let [low, high] = known;
         if (value <= low || high <= value) {
+          // Float outside bounds, try next candidate
           solution_is_good = false;
           break;
         }
       }
+      // Step the state forward to try the next known
       [s0, s1] = xs128p(s0, s1);
     }
 
     if (solution_is_good) {
-      // good solution!
-      // console.log('found solution', candidate_solution);
+      // We did not contradict any of the knowns,
+      // so this is a good solution!
       solutions.push(candidate_solution);
     }
   }
