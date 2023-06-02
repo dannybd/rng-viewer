@@ -35,6 +35,7 @@
 <div id="loading"><h2><em>Loading...</em></h2></div>
 <main>
   <pre id="test"></pre>
+  <button id="divine" style="color: inherit;">Run divine rolls test</button>
 </main>
 <script type="text/javascript">
 
@@ -144,9 +145,85 @@ function test3() {
       );
     }
   }
+  console.log('');
 }
 
 test3();
+
+function testDivine() {
+  $('#divine').prop('disabled', true);
+  function inner(slice) {
+    const {min: start_time, max: end_time} = slice.map(x => x.timestamp)
+      .reduce(
+        (range, time) => {
+          let min = range.min ?? time;
+          let max = range.max ?? time;
+          min = time < min ? time : min;
+          max = time > max ? time : max;
+          return {min, max};
+        },
+        {min: null, max: null},
+      );
+
+    const knowns = [];
+    for (let {lower_bound: lo, upper_bound: hi} of slice) {
+      if (lo === hi) {
+        knowns.push(lo);
+      } else if ((lo > 0) || (hi < 1)) {
+        knowns.push([lo, hi]);
+      } else {
+        knowns.push(null);
+      }
+    }
+
+    console.log(`Trying window ${start_time} - ${end_time}`);
+
+    const solutions = solve_in_math_random_order(knowns);
+    for (let {state, offset} of solutions) {
+      let rng = new Rng(state, offset);
+      for (let roll of slice) {
+        if (roll && roll.index === 0) {
+          // account for our indexing being the coords *before* consuming the roll
+          rng.step(-1);
+          console.log(
+            `found event at ${roll.timestamp} (${roll.roll_name}): ` +
+            `${rng.getStateStr()}, first roll ${rng.next()}`
+          );
+          break;
+        }
+        rng.step(1);
+      }
+    }
+  }
+
+  console.log('Running divine test...');
+
+  const jsonURLPrefix =
+    location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
+  $.get(jsonURLPrefix + 'static/test-divine-rolls.json', roll_log => {
+    const start = performance.now();
+    const window_size = 2800;
+    const step_size = 100;
+
+    const args = [];
+    for (let window_pos = 0; window_pos < roll_log.length - window_size; window_pos += step_size) {
+      let slice = roll_log.slice(window_pos, window_pos + window_size);
+      args.push(slice);
+    }
+
+    for (let slice of args) {
+      inner(slice);
+    }
+    const end = performance.now();
+    console.log('');
+    console.log(`Divine test executed in: ${(end - start) / 1000} seconds`);
+    console.log('');
+    $('#divine').prop('disabled', false);
+  });
+
+}
+
+$('#divine').click(testDivine);
 
 </script>
 </body>
