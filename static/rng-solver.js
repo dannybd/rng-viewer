@@ -191,7 +191,6 @@ function get_particular_solution(bits_from_states, bits_from_knowns) {
       return null;
     }
     if (row & 1n) {
-      solution |= 1n << BigInt(bit_length(row) - 2);
       solution |= IDENTITY128[IDENTITY128.length + 1 - bit_length(row)];
     }
   }
