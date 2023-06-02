@@ -262,6 +262,9 @@ function get_mantissa(val) {
 }
 
 function int_to_bits(n, length) {
+  if (length === 0) {
+    return [];
+  }
   return n.toString(2).padStart(length, 0).split('').map(BigInt);
 }
 
