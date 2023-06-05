@@ -46,7 +46,8 @@
   </p>
 </header>
 <div id="settings">
-  <button id="lightdark" title="Toggle light and dark mode">🌗</button><br>
+  <button id="lightdark" title="Toggle light and dark mode">🌗</button>
+  <button id="mode" title="Switch to Node 10">Node 10?</button><br>
   <a id="csv" title="Download CSV" download="rng-rolls.csv">&nbsp;CSV&nbsp;</a>
 </div>
 <table id="results">
@@ -56,7 +57,7 @@
       <th class="rollDistance" title="Assuming we kept calling Math.random() over and over, how far from the highlighted value are the other rolls?">± Rolls</th>
       <th class="stateNum s0" title="One of the two internal state values used in Math.random()">s0</th>
       <th class="stateNum s1" title="One of the two internal state values used in Math.random()">s1</th>
-      <th class="stateNum offset" title="Math.random() pre-generates blocks of 64 values into a buffer, and reads them out in reverse. If we have a list of values, we don't know where one block ends and the next begins--so this tracks our understanding. Change the GET param in the URL to try a different guess at where the blocks swap.">Offset</th>
+      <th class="stateNum offset" title="Math.random() pre-generates blocks of ?? values into a buffer, and reads them out in reverse. If we have a list of values, we don't know where one block ends and the next begins--so this tracks our understanding. Change the GET param in the URL to try a different guess at where the blocks swap.">Offset</th>
       <th class="val" title="Float value returned by Math.random()">Value</th>
       <th title="Do we know anything about this float value?">
         Notes
@@ -99,10 +100,10 @@ const BOOKMARKS = [
 ];
 
 function dump_around(s0, s1, blocks, offset) {
-  const rng = new Rng([s0, s1], offset);
-  rng.step(-64 * (blocks + 1) + offset);
+  const rng = new Rng([s0, s1], offset, RNG_MODE);
+  rng.step(-1 * BLOCK_SIZE * (blocks + 1) + offset);
   const rows = [];
-  for (let i = 0; i < (blocks * 2 + 1) * 64; i++) {
+  for (let i = 0; i < (blocks * 2 + 1) * BLOCK_SIZE; i++) {
     rng.next();
     rows.push([...rng.state, rng.value()]);
   }
@@ -111,7 +112,8 @@ function dump_around(s0, s1, blocks, offset) {
 
 function permalink(s0, s1, offset) {
   const blocksParam = blocks !== 3 ? `&blocks=${blocks}` : '';
-  return `?state=(${s0},${s1})+${offset}` + blocksParam;
+  const modeParam = search.get('mode') ? `&mode=${search.get('mode')}` : '';
+  return `?state=(${s0},${s1})+${offset}` + blocksParam + modeParam;
 }
 
 const formURL = 'https://docs.google.com/forms/d/e/1FAIpQLSebCplJCYPV49ixCXvnJ7MejF8h8dPvJNLeYQRmesiaZ_hThQ/viewform?usp=pp_url&entry.29853088=';
@@ -123,8 +125,8 @@ function make_row(n, s0, s1, val) {
   if (n % 2) {
     rowClasses.push('odd');
   }
-  const rowOffset = modulo(offset - n, 64);
-  if (rowOffset === 63) {
+  const rowOffset = modulo(offset - n, BLOCK_SIZE);
+  if (rowOffset === BLOCK_SIZE - 1) {
     rowClasses.push('blockStart');
   }
   if (rowOffset === 0) {
@@ -231,6 +233,23 @@ const s0 = tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));
 const s1 = tryBigInt(state?.s1) ?? tryBigInt(search.get('s1'));
 const offset = parseInt(tryBigInt(state?.offset || search.get('offset') || 0n) ?? 0);
 const blocks = parseInt(tryBigInt(search.get('blocks')) ?? 3n);
+const {
+  block_size: BLOCK_SIZE,
+  mode: RNG_MODE,
+} = Rng.getPropertiesForMode(search.get('mode'));
+
+if (RNG_MODE === 'node10') {
+  $('#mode').attr('title', 'Switch to Node 12');
+  $('#mode').html('Node 12?');
+}
+$('#mode').click(() => {
+  if (RNG_MODE === 'node10') {
+    window.location.href = window.location.href.replace(/&mode=\w+/, '');
+    return;
+  }
+  window.location.href = window.location.href + '&mode=node10';
+});
+
 if (s0 === null || s1 === null) {
   $('#loading').hide();
   $('#results thead').hide();
@@ -313,7 +332,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
           return `${uuid},${name.includes(',') ? `"${name}"` : name},${rollType[rollID] || rollID},${timestamp}`;
         })[0];
       }
-      const rowOffset = modulo(offset - i + startIndex, 64);
+      const rowOffset = modulo(offset - i + startIndex, BLOCK_SIZE);
       return `${s0},${s1},${rowOffset},${val},${extra}`;
     })
     .join('\n');
@@ -338,8 +357,8 @@ function findOrientation(maxDistance, direction=0) {
   }
   const shouldRunBackwards = direction <= 0;
   const shouldRunForwards = direction >= 0;
-  let backRng = new Rng([s0, s1], offset);
-  let forwRng = new Rng([s0, s1], offset);
+  let backRng = new Rng([s0, s1], offset, RNG_MODE);
+  let forwRng = new Rng([s0, s1], offset, RNG_MODE);
   let backKey = forwKey = null;
   for (let rolls = 0; rolls < maxDistance; rolls++) {
     if (shouldRunBackwards) {
@@ -347,7 +366,7 @@ function findOrientation(maxDistance, direction=0) {
       if (KNOWN_BLOCKS[backKey]) {
         KNOWN_ORIENTATION = {
           rollDistance: -1 * rolls,
-          correctedOffset: modulo(rolls, 64),
+          correctedOffset: modulo(rolls, BLOCK_SIZE),
           foundBlockS0: backRng.state[0],
           foundBlockS1: backRng.state[1],
           fragment: KNOWN_BLOCKS[backKey],
@@ -361,7 +380,7 @@ function findOrientation(maxDistance, direction=0) {
       if (KNOWN_BLOCKS[forwKey]) {
         KNOWN_ORIENTATION = {
           rollDistance: rolls,
-          correctedOffset: modulo(-1 * rolls, 64),
+          correctedOffset: modulo(-1 * rolls, BLOCK_SIZE),
           foundBlockS0: forwRng.state[0],
           foundBlockS1: forwRng.state[1],
           fragment: KNOWN_BLOCKS[forwKey],
@@ -407,7 +426,7 @@ function displayWhereAmI() {
   }
   const {rollDistance, correctedOffset, fragment} = orientation;
   let message = `You are looking at part of the "${fragment}" fragment.`;
-  if (rollDistance < 64) {
+  if (rollDistance < BLOCK_SIZE) {
     message += '\nThe nearest known anchor is within a block!';
   } else {
     message += `\nThe nearest known anchor for that fragment is ` +
@@ -435,9 +454,9 @@ function addToFragment(fragmentName, maxBlockDist=50) {
   );
   for (let blockDist = 0; blockDist <= maxBlockDist; blockDist++) {
     blocks.unshift(backBlock.join(','));
-    backBlock = [...Array(64)].reduce(coord => xs128p_backward(...coord), backBlock);
+    backBlock = [...Array(BLOCK_SIZE)].reduce(coord => xs128p_backward(...coord), backBlock);
     blocks.push(forwBlock.join(','));
-    forwBlock = [...Array(64)].reduce(coord => xs128p(...coord), forwBlock);
+    forwBlock = [...Array(BLOCK_SIZE)].reduce(coord => xs128p(...coord), forwBlock);
   }
   return Object.fromEntries(blocks.map(block => [block, fragmentName]));
 }
@@ -467,9 +486,9 @@ function findEventBoundary(maxDist=1e6, findEnd=true) {
     `in ${duration.toFixed(3)} seconds. ` +
     `Found ${numMatches.toLocaleString()} matches in LMNOPQR.`,
   );
-  let lastOffset = modulo(offset + (findEnd ? 1 : -1) * lastMatch.dist, 64);
+  let lastOffset = modulo(offset + (findEnd ? 1 : -1) * lastMatch.dist, BLOCK_SIZE);
   // We want to scroll a bit further to the next block head
-  return [...Array(findEnd ? 64 - lastOffset : lastOffset)]
+  return [...Array(findEnd ? BLOCK_SIZE - lastOffset : lastOffset)]
     .reduce(coord => xs128p_method(...coord), lastMatch.coord);
 }
 
@@ -478,7 +497,7 @@ function scrollCoord(coord, offset, dist) {
   for (let i = 0; i < Math.abs(dist); i++) {
     coord = xs128p_method(...coord);
   }
-  return {coord, offset: modulo(offset + dist, 64)};
+  return {coord, offset: modulo(offset + dist, BLOCK_SIZE)};
 }
 
 </script>

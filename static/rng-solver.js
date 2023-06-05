@@ -248,7 +248,15 @@ function reverse23(val) {
 
 function state_to_double(s0) {
   const dataView = new DataView((new Float64Array(1)).buffer);
-  dataView.setBigInt64(0, (s0 >> 12n) | 0x3FF0000000000000n);
+  const mantissa = s0 >> 12n;
+  dataView.setBigInt64(0, mantissa | 0x3FF0000000000000n);
+  return dataView.getFloat64() - 1;
+}
+
+function state_to_double_node10(s0, s1) {
+  const dataView = new DataView((new Float64Array(1)).buffer);
+  const mantissa = (s0 + s1) & 0x000FFFFFFFFFFFFFn;
+  dataView.setBigInt64(0, mantissa | 0x3FF0000000000000n);
   return dataView.getFloat64() - 1;
 }
 
@@ -417,8 +425,6 @@ function solve_in_rng_order(knowns) {
 }
 
 
-const BLOCK_SIZE = 64;
-
 /**
  * Math.random() generates blocks of 64 values, and then reverses them:
  *
@@ -442,22 +448,24 @@ const BLOCK_SIZE = 64;
  * Returns list of all possible RNG solutions or [] if no solution found
  */
 function solve_in_math_random_order(rolls) {
+  // Solver only works for Node 12 / Chrome
+  const {block_size} = Rng.getPropertiesForMode('node12');
   let solutions = [];
-  for (let offset = 0; offset < Math.min(rolls.length, BLOCK_SIZE); offset++) {
+  for (let offset = 0; offset < Math.min(rolls.length, block_size); offset++) {
     let knowns = [];
     let block = [];
     if (offset) {
       block = rolls.slice(0, offset).reverse();
       // If we have some initial offset, then the first block
       // needs to have the rest of the block filled out with nulls
-      block.push(...Array(BLOCK_SIZE - block.length).fill(null));
+      block.push(...Array(block_size - block.length).fill(null));
       knowns.push(...block);
     }
-    for (let i = offset; i < rolls.length; i += BLOCK_SIZE) {
-      block = rolls.slice(i, i + BLOCK_SIZE).reverse();
+    for (let i = offset; i < rolls.length; i += block_size) {
+      block = rolls.slice(i, i + block_size).reverse();
       // For every subsequent block, we need to fill the
       // start of the block with nulls instead of the end
-      block.unshift(...Array(BLOCK_SIZE - block.length).fill(null));
+      block.unshift(...Array(block_size - block.length).fill(null));
       knowns.push(...block);
     }
     let states = solve_in_rng_order(knowns);
@@ -465,14 +473,14 @@ function solve_in_math_random_order(rolls) {
       continue;
     }
     for (let state of states) {
-      for (let i = 0; i < (offset || BLOCK_SIZE) - 1; i++) {
+      for (let i = 0; i < (offset || block_size) - 1; i++) {
         state = xs128p(...state);
       }
       solutions.push({
         state: state,
-        offset: (offset || BLOCK_SIZE) - 1,
+        offset: (offset || block_size) - 1,
         roll: state_to_double(state[0]),
-        crossesBlockBoundary: knowns.length > BLOCK_SIZE,
+        crossesBlockBoundary: knowns.length > block_size,
       });
     }
   }
@@ -480,9 +488,13 @@ function solve_in_math_random_order(rolls) {
 }
 
 class Rng {
-  constructor(state, offset) {
+  constructor(state, offset, rng_mode = null) {
     this.state = state;
     this.offset = offset;
+    const {mode, block_size, to_double} = Rng.getPropertiesForMode(rng_mode);
+    this.mode = mode;
+    this.block_size = block_size;
+    this.to_double = to_double;
   }
 
   static fromStateStr(str) {
@@ -497,16 +509,34 @@ class Rng {
     );
   }
 
+  static getPropertiesForMode(mode) {
+    switch (mode) {
+      case 'node10':
+        return {
+          mode: 'node10',
+          block_size: 62,
+          to_double: ([s0, s1]) => state_to_double_node10(s0, s1),
+        };
+      default:
+        return {
+          mode: 'node12',
+          block_size: 64,
+          to_double: ([s0, _]) => state_to_double(s0),
+        };
+    }
+  }
+
   getStateStr() {
     return `(${this.state[0]},${this.state[1]})+${this.offset}`;
   }
 
   getStateURL() {
-    return `https://rng.sibr.dev/?state=${this.getStateStr()}`;
+    const modeParam = this.#isNode10() ? `&mode=${this.mode}` : '';
+    return `https://rng.sibr.dev/?state=${this.getStateStr()}` + modeParam;
   }
 
   value() {
-    return state_to_double(this.state[0]);
+    return this.to_double(this.state);
   }
 
   next() {
@@ -521,13 +551,13 @@ class Rng {
     this.offset -= steps;
 
     while (this.offset < 0) {
-      this.#stepRaw(128);
-      this.offset += 64;
+      this.#stepRaw((this.block_size * 2));
+      this.offset += this.block_size;
     }
 
-    while (this.offset >= 64) {
-      this.#stepRaw(-128);
-      this.offset -= 64;
+    while (this.offset >= this.block_size) {
+      this.#stepRaw(-(this.block_size * 2));
+      this.offset -= this.block_size;
     }
 
     this.#stepRaw(-steps);
@@ -539,5 +569,9 @@ class Rng {
     for (let i = 0; i < Math.abs(amount); i++) {
       this.state = stepper(...this.state);
     }
+  }
+
+  #isNode10() {
+    return this.mode === 'node10';
   }
 }
