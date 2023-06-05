@@ -97,6 +97,7 @@ const BOOKMARKS = [
   ['Phoenix Trunks (@ Leif Gawrsh thwack)', 30771074130781185n, 5883269418365184584n, 21],
   ['San Diego Saltines (@ Hyena Buttercup thwack)', 9981119464198802303n, 18440814751407907545n, 40],
   ['Sao Paulo Parrots (@ Anabela Henriques thwack)', 18216982414311324831n, 17042059152575397257n, 2],
+  ['Ginny Psst (Gamma2 Player Rolls)', 16007058865500122875n, 311869368341680653n, 25, 'node10'],
 ];
 
 function dump_around(s0, s1, blocks, offset) {
@@ -110,9 +111,10 @@ function dump_around(s0, s1, blocks, offset) {
   return rows;
 }
 
-function permalink(s0, s1, offset) {
+function permalink(s0, s1, offset, mode) {
   const blocksParam = blocks !== 3 ? `&blocks=${blocks}` : '';
-  const modeParam = search.get('mode') ? `&mode=${search.get('mode')}` : '';
+  mode ??= search.get('mode');
+  const modeParam = mode ? `&mode=${mode}` : '';
   return `?state=(${s0},${s1})+${offset}` + blocksParam + modeParam;
 }
 
@@ -225,6 +227,8 @@ const rollType = {
 // Lookup of Magic Numbers Ostensibly Produced Quasi-Randomly
 let LMNOPQR = {};
 
+const jsonURLPrefix =
+  location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
 const search = new URLSearchParams(window.location.search);
 const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>\d+))?$/;
 
@@ -255,11 +259,11 @@ if (s0 === null || s1 === null) {
   $('#results thead').hide();
   $('#results tbody').html(
     BOOKMARKS
-      .map(([label, s0, s1, offset]) => `
+      .map(([label, s0, s1, offset, mode]) => `
         <tr>
           <td></td>
           <td><div style="width: 200px;"></div></td>
-          <td><strong><a href="${permalink(s0, s1, offset)}">${label}</a></strong></td>
+          <td><strong><a href="${permalink(s0, s1, offset, mode)}">${label}</a></strong></td>
           <td class="stateNum state0">${s0}</td>
           <td class="stateNum state1">${s1}</td>
           <td><div style="width: 200px;"></div></td>
@@ -269,7 +273,7 @@ if (s0 === null || s1 === null) {
     + '<tr><td>&nbsp;</td></tr>'
     + '<tr><td></td><td></td><td>Loading S1 Players...</td><td></td><td></td><td></td></tr>',
   );
-  $.getJSON('static/player-links.json', data => {
+  $.getJSON(jsonURLPrefix + 'static/player-links.json', data => {
     const options = data
       .sort((a, b) => a.name > b.name ? 1 : -1)
       .map(({name, s0, s1, offset}) =>
@@ -299,8 +303,6 @@ __MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
   MANUAL_LMNOPQR[val].push(entry);
 });
 
-const jsonURLPrefix =
-  location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
 $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   LMNOPQR = data;
   for (val in MANUAL_LMNOPQR) {
