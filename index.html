@@ -366,7 +366,7 @@ function findOrientation(maxDistance, direction=0) {
       if (KNOWN_BLOCKS[backKey]) {
         KNOWN_ORIENTATION = {
           rollDistance: -1 * rolls,
-          correctedOffset: modulo(rolls, BLOCK_SIZE),
+          correctedOffset: modulo(-1 * rolls, BLOCK_SIZE),
           foundBlockS0: backRng.state[0],
           foundBlockS1: backRng.state[1],
           fragment: KNOWN_BLOCKS[backKey],
@@ -380,7 +380,7 @@ function findOrientation(maxDistance, direction=0) {
       if (KNOWN_BLOCKS[forwKey]) {
         KNOWN_ORIENTATION = {
           rollDistance: rolls,
-          correctedOffset: modulo(-1 * rolls, BLOCK_SIZE),
+          correctedOffset: modulo(rolls, BLOCK_SIZE),
           foundBlockS0: forwRng.state[0],
           foundBlockS1: forwRng.state[1],
           fragment: KNOWN_BLOCKS[forwKey],
