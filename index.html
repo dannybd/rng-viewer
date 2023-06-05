@@ -446,60 +446,6 @@ function displayWhereAmI() {
   }
 }
 
-function addToFragment(fragmentName, maxBlockDist=50) {
-  const blocks = [];
-  let backBlock = forwBlock = [...Array(offset)].reduce(
-    coord => xs128p_backward(...coord),
-    [s0, s1],
-  );
-  for (let blockDist = 0; blockDist <= maxBlockDist; blockDist++) {
-    blocks.unshift(backBlock.join(','));
-    backBlock = [...Array(BLOCK_SIZE)].reduce(coord => xs128p_backward(...coord), backBlock);
-    blocks.push(forwBlock.join(','));
-    forwBlock = [...Array(BLOCK_SIZE)].reduce(coord => xs128p(...coord), forwBlock);
-  }
-  return Object.fromEntries(blocks.map(block => [block, fragmentName]));
-}
-
-function printAddToFragment(fragmentName, maxBlockDist) {
-  console.log(JSON.stringify(addToFragment(fragmentName, maxBlockDist), null, '  '));
-}
-
-function findEventBoundary(maxDist=1e6, findEnd=true) {
-  const xs128p_method = findEnd ? xs128p : xs128p_backward;
-  const start = window.performance.now();
-  let coord = [s0, s1];
-  let lastMatch = {coord, dist: 0};
-  let numMatches = 0;
-  for (let dist = 0; dist < maxDist; dist++) {
-    if (LMNOPQR[state_to_double(coord[0])]) {
-      lastMatch = {coord, dist};
-      numMatches++;
-    }
-    coord = xs128p_method(...coord);
-  }
-  const end = window.performance.now();
-  const duration = (end - start) / 1000;
-  console.log(
-    `Checked ${maxDist.toLocaleString()} rolls ` +
-    `${findEnd ? 'forwards' : 'backwards'} ` +
-    `in ${duration.toFixed(3)} seconds. ` +
-    `Found ${numMatches.toLocaleString()} matches in LMNOPQR.`,
-  );
-  let lastOffset = modulo(offset + (findEnd ? 1 : -1) * lastMatch.dist, BLOCK_SIZE);
-  // We want to scroll a bit further to the next block head
-  return [...Array(findEnd ? BLOCK_SIZE - lastOffset : lastOffset)]
-    .reduce(coord => xs128p_method(...coord), lastMatch.coord);
-}
-
-function scrollCoord(coord, offset, dist) {
-  const xs128p_method = dist > 0 ? xs128p : xs128p_backward;
-  for (let i = 0; i < Math.abs(dist); i++) {
-    coord = xs128p_method(...coord);
-  }
-  return {coord, offset: modulo(offset + dist, BLOCK_SIZE)};
-}
-
 </script>
 </body>
 </html>
