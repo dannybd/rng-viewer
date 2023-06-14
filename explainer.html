@@ -85,9 +85,9 @@ function test() {
   const sol = solve_in_rng_order(knowns);
   console.log(`got solutions: ${sol}`);
   if (sol.toString() === expected_solution.toString()) {
-    console.log('test success: quack enjoyable!');
+    console.log('test success: quack enjoyable! ✅');
   } else {
-    console.log('test fail');
+    console.log('test fail ❌');
   }
 }
 
@@ -113,12 +113,20 @@ function test2() {
   console.log('rolls:', rolls);
   console.log('Running solve_in_math_random_order(rolls)...');
   const results = solve_in_math_random_order(rolls);
+
+  const actual = 0.9692475075808971;
+
   for (let {state, offset, crossesBlockBoundary} of results) {
     let rng = new Rng(state, offset);
     let url = rng.getStateURL();
     console.log(`got solution: <a target="_blank" href="${url}">${url}</a>`);
-    console.log('Predicted next value:', rng.step(rolls.length));
-    console.log('   Actual next value: 0.9692475075808971');
+    let predicted = rng.step(rolls.length);
+    console.log(
+      'Predicted next value:',
+      predicted,
+      predicted === actual ? '✅' : '❌',
+    );
+    console.log('   Actual next value:', actual);
     if (!crossesBlockBoundary) {
       console.log(
         'Warning, does not cross a block boundary, so may be mis-aligned!',
@@ -137,12 +145,20 @@ function test3() {
   const rolls = [...Array(64).keys()].map(Math.random);
   console.log(`> testing with ${rolls.length} rolls:`, rolls);
   const results = solve_in_math_random_order(rolls);
+
+  const actual = Math.random();
+
   for (let {state, offset, crossesBlockBoundary} of results) {
     let rng = new Rng(state, offset);
     let url = rng.getStateURL();
     console.log(`got solution: <a target="_blank" href="${url}">${url}</a>`);
-    console.log('Predicted next Math.random() value:', rng.step(rolls.length));
-    console.log('   Actual next Math.random() value:', Math.random());
+    let predicted = rng.step(rolls.length);
+    console.log(
+      'Predicted next Math.random() value:',
+      predicted,
+      predicted === actual ? '✅' : '❌',
+    );
+    console.log('   Actual next Math.random() value:', actual);
     if (crossesBlockBoundary) {
       console.log('Crosses block boundary, it is aligned!');
     } else {
@@ -160,7 +176,7 @@ function test4() {
     Math.random();
   }
 
-  const numFlips = 300;
+  const numFlips = 250;
   console.log(`Generating ${numFlips} coin flips...`);
   const flips = Array.from(
     {length: numFlips},
@@ -174,20 +190,28 @@ function test4() {
 
   const knowns = flips.map(x => x === 'H' ? [0.5, 1] : [0, 0.4999999999999999]);
   const results = solve_in_math_random_order(knowns);
+
+  let actual = '';
+  for (let i = 0; i < 50; i++) {
+    actual += Math.random() > 0.5 ? 'H' : 'T';
+  }
+
   for (let {state, offset, crossesBlockBoundary} of results) {
     let rng = new Rng(state, offset);
     let url = rng.getStateURL();
     rng.step(knowns.length - 1);
     console.log(`Got solution: <a target="_blank" href="${url}">${url}</a>`);
     let predicted = '';
-    let actual = '';
     for (let i = 0; i < 50; i++) {
       predicted += rng.next() > 0.5 ? 'H' : 'T';
-      actual += Math.random() > 0.5 ? 'H' : 'T';
     }
-    console.log('Predicted next 50 coin flips:', predicted);
-    console.log('   Actual next 50 coin flips:', actual);
+    console.log(
+      'Predicted next 50 coin flips:',
+      predicted,
+      predicted === actual ? '✅' : '❌',
+    );
   }
+  console.log('   Actual next 50 coin flips:', actual);
 }
 
 runTest(test4, 'Coin flip');
@@ -218,24 +242,29 @@ function testDivine() {
       }
     }
 
-    console.log(`Trying window ${start_time} - ${end_time}`);
+    console.info(`Trying window ${start_time} - ${end_time}`);
 
     const solutions = solve_in_math_random_order(knowns);
+
+    const solutionMessages = [];
     for (let {state, offset} of solutions) {
       let rng = new Rng(state, offset);
       for (let roll of slice) {
         if (roll && roll.index === 0) {
           // account for our indexing being the coords *before* consuming the roll
           rng.step(-1);
-          console.log(
+          let message =
             `found event at ${roll.timestamp} (${roll.roll_name}): ` +
-            `${rng.getStateStr()}, first roll ${rng.next()}`
-          );
+            `${rng.getStateStr()}, first roll ${rng.next()}`;
+          solutionMessages.push(message);
+          console.info(message);
           break;
         }
         rng.step(1);
       }
     }
+
+    return solutionMessages;
   }
 
   function onRollLog(roll_log) {
@@ -248,8 +277,38 @@ function testDivine() {
       args.push(slice);
     }
 
+    const solutionMessages = [];
     for (let slice of args) {
-      inner(slice);
+      solutionMessages.push(...inner(slice));
+    }
+
+    const expectedMessages = [
+      'found event at 2021-04-14T16:09:38.602Z (feedbackselection): (16923443091489802019,15602977387954639486)+45, first roll 0.485933936293798',
+      'found event at 2021-04-14T16:09:42.360Z (unscatter (Fran-isco Presto-)): (3064560083166608548,8391019667691208444)+63, first roll 0.33776331344215027',
+      'found event at 2021-04-14T16:09:44.384Z (party time): (1281733583691985296,15900682026038069993)+36, first roll 0.4564150244492009',
+      'found event at 2021-04-14T16:09:53.231Z (unscatter (--n Ell--tt)): (17911176706170239908,10097155426666833892)+52, first roll 0.27162923720653276',
+      'found event at 2021-04-14T16:09:54.091Z (party time): (14459935251894213796,4496819543207924952)+25, first roll 0.14803169070903976',
+      'found event at 2021-04-14T16:09:59.462Z (party time): (878934143813288820,17414618287976774098)+55, first roll 0.6419955910061119',
+      'found event at 2021-04-14T16:10:04.100Z (unscatter (Knight Tri---h--t)): (9459455658791321860,17941339425735243889)+20, first roll 0.38917721440508135',
+      'found event at 2021-04-14T16:10:09.110Z (unscatter (Knight Tri---h--t)): (3474315979662338417,14696791654468279679)+46, first roll 0.2948003638197556',
+      'found event at 2021-04-14T16:10:14.089Z (party time): (3465848654074398833,17009945592257527179)+12, first roll 0.15337395450785896',
+      'found event at 2021-04-14T16:10:22.936Z (feedbackselection): (13855485409707442956,12016655685040892726)+42, first roll 0.15352276050243874',
+      'found event at 2021-04-14T16:20:07.000Z (unscatter (S--atc- D-le--e)): (16713859846266698110,8834641382653193633)+23, first roll 0.495304928927895',
+      'found event at 2021-04-14T16:20:12.261Z (party time): (11788530186549036959,4875227415139072935)+45, first roll 0.10192525114457829',
+    ];
+
+    console.log(
+      `Found ${solutionMessages.length} events ` +
+      `(expected ${expectedMessages.length} ` +
+      `${solutionMessages.length === expectedMessages.length ? '✅' : '❌'}):`,
+    );
+    for (let i in solutionMessages) {
+      let message = solutionMessages[i];
+      console.log(
+        '  ',
+        message === expectedMessages[i] ? '✅' : '❌',
+        message,
+      );
     }
     console.log('');
   }

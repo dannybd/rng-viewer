@@ -159,7 +159,7 @@ function get_kernel_basis(bits_from_states) {
 
   const size = kernel_basis.length;
   if (size > 0) {
-    console.log(`WARNING: ${2**size} (2^${size}) potential solutions`);
+    console.warn(`WARNING: ${2**size} (2^${size}) potential solutions`);
   }
 
   return kernel_basis;
@@ -369,7 +369,7 @@ function solve_in_rng_order(knowns) {
   const kernel_basis = get_kernel_basis(bits_from_states);
 
   if (kernel_basis.length > MAX_KERNEL_BASIS_SIZE) {
-    console.log('too many to bruteforce, giving up :(');
+    console.error('too many to bruteforce, giving up :(');
     return [];
   }
 
