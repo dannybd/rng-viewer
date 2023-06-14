@@ -59,6 +59,13 @@ console.log = (...x) => {
   console._log(...x);
 };
 
+function runTest(testFunc, testDesc) {
+  const start = performance.now();
+  testFunc();
+  const end = performance.now();
+  console.log(`${testDesc} test executed in: ${(end - start) / 1000} seconds`);
+  console.log('');
+}
 
 function test() {
   const knowns = [
@@ -84,7 +91,7 @@ function test() {
   console.log('');
 }
 
-test();
+runTest(test, 'Quack Enjoyable');
 
 function test2() {
   // https://rng.sibr.dev/?state=(15779009155937865159,16202637166048270229)+4
@@ -121,7 +128,7 @@ function test2() {
   console.log('');
 }
 
-test2();
+runTest(test2, 'solve_in_math_random_order');
 
 function test3() {
   for (let i = 0; i < 64 * Math.random(); i++) {
@@ -148,7 +155,7 @@ function test3() {
   console.log('');
 }
 
-test3();
+runTest(test3, 'Math.random() prediction');
 
 function testDivine() {
   $('#divine').prop('disabled', true);
@@ -196,12 +203,7 @@ function testDivine() {
     }
   }
 
-  console.log('Running divine test...');
-
-  const jsonURLPrefix =
-    location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
-  $.get(jsonURLPrefix + 'static/test-divine-rolls.json', roll_log => {
-    const start = performance.now();
+  function onRollLog(roll_log) {
     const window_size = 2800;
     const step_size = 100;
 
@@ -214,10 +216,15 @@ function testDivine() {
     for (let slice of args) {
       inner(slice);
     }
-    const end = performance.now();
     console.log('');
-    console.log(`Divine test executed in: ${(end - start) / 1000} seconds`);
-    console.log('');
+  }
+
+  console.log('Running divine test...');
+
+  const jsonURLPrefix =
+    location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
+  $.get(jsonURLPrefix + 'static/test-divine-rolls.json', roll_log => {
+    runTest(() => onRollLog(roll_log), 'Divine');
     $('#divine').prop('disabled', false);
   });
 
