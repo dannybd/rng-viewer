@@ -63,6 +63,7 @@ function runTest(testFunc, testDesc) {
   const start = performance.now();
   testFunc();
   const end = performance.now();
+  console.log('');
   console.log(`${testDesc} test executed in: ${(end - start) / 1000} seconds`);
   console.log('');
 }
@@ -88,7 +89,6 @@ function test() {
   } else {
     console.log('test fail');
   }
-  console.log('');
 }
 
 runTest(test, 'Quack Enjoyable');
@@ -125,7 +125,6 @@ function test2() {
       );
     }
   }
-  console.log('');
 }
 
 runTest(test2, 'solve_in_math_random_order');
@@ -152,10 +151,46 @@ function test3() {
       );
     }
   }
-  console.log('');
 }
 
 runTest(test3, 'Math.random() prediction');
+
+function test4() {
+  for (let i = 0; i < 64 * Math.random(); i++) {
+    Math.random();
+  }
+
+  const numFlips = 300;
+  console.log(`Generating ${numFlips} coin flips...`);
+  const flips = Array.from(
+    {length: numFlips},
+    _ => Math.random() > 0.5 ? 'H' : 'T',
+  );
+  for (let row of flips.join('').match(/.{1,50}/g)) {
+    console.log('  ', row);
+  }
+
+  console.log('Solving for Math.random() state...');
+
+  const knowns = flips.map(x => x === 'H' ? [0.5, 1] : [0, 0.4999999999999999]);
+  const results = solve_in_math_random_order(knowns);
+  for (let {state, offset, crossesBlockBoundary} of results) {
+    let rng = new Rng(state, offset);
+    let url = rng.getStateURL();
+    rng.step(knowns.length - 1);
+    console.log(`Got solution: <a target="_blank" href="${url}">${url}</a>`);
+    let predicted = '';
+    let actual = '';
+    for (let i = 0; i < 50; i++) {
+      predicted += rng.next() > 0.5 ? 'H' : 'T';
+      actual += Math.random() > 0.5 ? 'H' : 'T';
+    }
+    console.log('Predicted next 50 coin flips:', predicted);
+    console.log('   Actual next 50 coin flips:', actual);
+  }
+}
+
+runTest(test4, 'Coin flip');
 
 function testDivine() {
   $('#divine').prop('disabled', true);
