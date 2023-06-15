@@ -60,12 +60,20 @@ console.log = (...x) => {
 };
 
 function runTest(testFunc, testDesc) {
+  // Scramble Math.random state to somewhere in the block
+  for (let i = 0; i < 64 * Math.random(); i++) {
+    Math.random();
+  }
   const start = performance.now();
   testFunc();
   const end = performance.now();
   console.log('');
   console.log(`${testDesc} test executed in: ${(end - start) / 1000} seconds`);
   console.log('');
+}
+
+function passFail(check) {
+  return check ? '✅' : '❌';
 }
 
 function test() {
@@ -85,9 +93,9 @@ function test() {
   const sol = solve_in_rng_order(knowns);
   console.log(`got solutions: ${sol}`);
   if (sol.toString() === expected_solution.toString()) {
-    console.log('test success: quack enjoyable! ✅');
+    console.log('test success: quack enjoyable! ' + passFail(true));
   } else {
-    console.log('test fail ❌');
+    console.log('test fail ' + passFail(false));
   }
 }
 
@@ -124,7 +132,7 @@ function test2() {
     console.log(
       'Predicted next value:',
       predicted,
-      predicted === actual ? '✅' : '❌',
+      passFail(predicted === actual),
     );
     console.log('   Actual next value:', actual);
     if (!crossesBlockBoundary) {
@@ -138,9 +146,6 @@ function test2() {
 runTest(test2, 'solve_in_math_random_order');
 
 function test3() {
-  for (let i = 0; i < 64 * Math.random(); i++) {
-    Math.random();
-  }
   console.log('Finding current Math.random() state...');
   const rolls = [...Array(64).keys()].map(Math.random);
   console.log(`> testing with ${rolls.length} rolls:`, rolls);
@@ -156,7 +161,7 @@ function test3() {
     console.log(
       'Predicted next Math.random() value:',
       predicted,
-      predicted === actual ? '✅' : '❌',
+      passFail(predicted === actual),
     );
     console.log('   Actual next Math.random() value:', actual);
     if (crossesBlockBoundary) {
@@ -172,10 +177,6 @@ function test3() {
 runTest(test3, 'Math.random() prediction');
 
 function test4() {
-  for (let i = 0; i < 64 * Math.random(); i++) {
-    Math.random();
-  }
-
   const numFlips = 250;
   console.log(`Generating ${numFlips} coin flips...`);
   const flips = Array.from(
@@ -188,18 +189,33 @@ function test4() {
 
   console.log('Solving for Math.random() state...');
 
-  const knowns = flips.map(x => x === 'H' ? [0.5, 1] : [0, 0.4999999999999999]);
-  const results = solve_in_math_random_order(knowns);
+  function tryForKnowns(flips) {
+    const knowns = flips.map(x => x === 'H' ? [0.5, 1] : [0, 0.4999999999999999]);
+    const results = solve_in_math_random_order(knowns);
 
-  let actual = '';
-  for (let i = 0; i < 50; i++) {
-    actual += Math.random() > 0.5 ? 'H' : 'T';
+    let actual = '';
+    for (let i = 0; i < 50; i++) {
+      actual += Math.random() > 0.5 ? 'H' : 'T';
+    }
+    return [results, actual];
+  }
+
+  let [results, actual] = tryForKnowns(flips);
+  while (results.length !== 1) {
+    if (results.length === 0) {
+      console.log('No solutions found! Needs more coinflips, adding 50:');
+    } else {
+      console.log('Multiple solutions found! Needs more coinflips, adding 50:');
+    }
+    console.log('  ', actual);
+    flips.push(...actual.split(''));
+    [results, actual] = tryForKnowns(flips);
   }
 
   for (let {state, offset, crossesBlockBoundary} of results) {
     let rng = new Rng(state, offset);
     let url = rng.getStateURL();
-    rng.step(knowns.length - 1);
+    rng.step(flips.length - 1);
     console.log(`Got solution: <a target="_blank" href="${url}">${url}</a>`);
     let predicted = '';
     for (let i = 0; i < 50; i++) {
@@ -208,7 +224,7 @@ function test4() {
     console.log(
       'Predicted next 50 coin flips:',
       predicted,
-      predicted === actual ? '✅' : '❌',
+      passFail(predicted === actual),
     );
   }
   console.log('   Actual next 50 coin flips:', actual);
@@ -300,13 +316,13 @@ function testDivine() {
     console.log(
       `Found ${solutionMessages.length} events ` +
       `(expected ${expectedMessages.length} ` +
-      `${solutionMessages.length === expectedMessages.length ? '✅' : '❌'}):`,
+      `${passFail(solutionMessages.length === expectedMessages.length)}):`,
     );
     for (let i in solutionMessages) {
       let message = solutionMessages[i];
       console.log(
         '  ',
-        message === expectedMessages[i] ? '✅' : '❌',
+        passFail(message === expectedMessages[i]),
         message,
       );
     }
