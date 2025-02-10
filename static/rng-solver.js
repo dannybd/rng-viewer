@@ -517,6 +517,7 @@ class Rng {
           block_size: 62,
           to_double: ([s0, s1]) => state_to_double_node10(s0, s1),
         };
+      case 'node12':
       default:
         return {
           mode: 'node12',
@@ -533,6 +534,25 @@ class Rng {
   getStateURL() {
     const modeParam = this.#isNode10() ? `&mode=${this.mode}` : '';
     return `https://rng.sibr.dev/?state=${this.getStateStr()}` + modeParam;
+  }
+
+  clone() {
+    return new Rng(this.state, this.offset, this.mode);
+  }
+
+  getCheckpoint() {
+    const rng = this.clone();
+    const checkpointMaskSize = 20n;
+    const checkpointMask = (1n << checkpointMaskSize) - 1n;
+    let distance = 0;
+    while (rng.state[0] & checkpointMask) {
+      distance++;
+      rng.prev();
+    }
+    return {
+      checkpoint: (rng.state[0] >> checkpointMaskSize).toString(16),
+      stepsBack: distance,
+    };
   }
 
   value() {
