@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="static/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
   <script src="static/manual-lmnopqr.js"></script>
+  <script src="static/known-checkpoints.js"></script>
   <script src="static/rng-solver.js"></script>
   <!--
   <meta property="theme-color" content="#000000">
@@ -134,29 +135,7 @@ function make_row(n, s0, s1, val) {
   if (rowOffset === 0) {
     rowClasses.push('blockEnd');
   }
-  let notes = '';
-  const lookup = LMNOPQR[val];
-  if (lookup) {
-    notes = lookup
-      .map(([uuid, name, rollID, timestamp, type]) => {
-        type = type || 'known';
-        let dateStr = '';
-        if (timestamp) {
-          const date = new Date(timestamp * 1000);
-          dateStr = `(<span title="As of ${date}">${date.toISOString().split('T')[0]}</span>)`;
-        }
-        const explainer = type === 'manual'
-          ? `<span class="explainer" title="This was manually inferred by folks crunching the data, not a stat pulled from Blaseball itself.">[?]</span>`
-          : '';
-        return `<span class="${type}">
-          <span title="${uuid}">${name}</span> /
-          ${rollType[rollID] || rollID}
-          ${dateStr}
-          ${explainer}
-        </span>`;
-      })
-      .join('; <br>');
-  }
+  let notes = build_notes(val);
   if (!notes) {
     notes = `<a class="editLink" target="_blank" href="${formURL}${s0},${s1},${rowOffset},${val}">✍️</a>`;
   }
@@ -170,6 +149,37 @@ function make_row(n, s0, s1, val) {
     <td class="notes">${notes}</td>
     <td></td>
   </tr>`;
+}
+
+function build_notes(val) {
+  const lookup = LMNOPQR[val];
+  if (!lookup) {
+    return '';
+  }
+  return lookup
+    .map(([uuid, name, rollID, timestamp, type]) => {
+      type = type || 'known';
+      let dateStr = '';
+      if (timestamp) {
+        const date = new Date(timestamp * 1000);
+        dateStr = `(<span title="As of ${date}">${date.toISOString().split('T')[0]}</span>)`;
+      }
+      let explainer = '';
+      switch (type) {
+        case 'manual':
+          explainer = `<span class="explainer" title="This was manually inferred by folks crunching the data, not a stat pulled from Blaseball itself.">[?]</span>`;
+          break;
+        default:
+          break;
+      }
+      return `<span class="${type}">
+        <span title="${uuid}">${name}</span> /
+        ${rollType[rollID] || rollID}
+        ${dateStr}
+        ${explainer}
+      </span>`;
+    })
+    .join('; <br>');
 }
 
 function modulo(x, n) {
@@ -344,7 +354,50 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     .show();
 
   $('html, body').animate({scrollTop: $('.rngRow.highlight').offset().top - 400});
+
+  setTimeout(loadCheckpoint, 1000);
 });
+
+let CHECKPOINT = null;
+let CHECKPOINT_LMNOPQR = {};
+function loadCheckpoint() {
+  if (CHECKPOINT) {
+    return;
+  }
+  console.log('start checkpoint...');
+  const priorCheckpoint = (new Rng([s0, s1], offset, RNG_MODE)).getCheckpoint();
+  CHECKPOINT = KNOWN_CHECKPOINTS[priorCheckpoint.checkpoint];
+  if (CHECKPOINT?.canonicalID) {
+    CHECKPOINT = KNOWN_CHECKPOINTS[CHECKPOINT?.canonicalID];
+  }
+  if (!CHECKPOINT) {
+    return;
+  }
+  CHECKPOINT.stepsBack = priorCheckpoint.stepsBack;
+  console.log('checkpoint!', CHECKPOINT);
+  $.get(jsonURLPrefix + `static/checkpoints/${CHECKPOINT.id}.json`, data => {
+    CHECKPOINT_LMNOPQR = data;
+    for (val in CHECKPOINT_LMNOPQR) {
+      if (!LMNOPQR[val]) {
+        LMNOPQR[val] = [];
+      }
+      LMNOPQR[val].push(...CHECKPOINT_LMNOPQR[val]);
+    }
+    [...document.querySelectorAll('.rngRow:has(.editLink) .val')].forEach(v => {
+      const notes = build_notes(v.innerText);
+      if (!notes) {
+        return;
+      }
+      $(v).next('.notes')
+        .css('opacity', 0)
+        .addClass('checkpointNotes')
+        .html(notes);
+    });
+    $('.checkpointNotes').fadeIn();
+  }).fail(() => {
+    console.log(`Could not load LMNOPQR for checkpoint ${CHECKPOINT.id}!`);
+  });
+}
 
 let KNOWN_BLOCKS = null;
 let KNOWN_ORIENTATION = null;
