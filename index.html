@@ -157,7 +157,17 @@ function build_notes(val) {
     return '';
   }
   return lookup
-    .map(([uuid, name, rollID, timestamp, type]) => {
+    .map(hit => {
+      let [uuid, name, rollID, timestamp, type] = ['', '', '', '', ''];
+      switch (hit.length) {
+        case 5:
+          [uuid, name, rollID, timestamp, type] = hit;
+          break;
+        case 2:
+          [name, type] = hit;
+        default:
+          return '';
+      }
       type = type || 'known';
       let dateStr = '';
       if (timestamp) {
@@ -169,12 +179,25 @@ function build_notes(val) {
         case 'manual':
           explainer = `<span class="explainer" title="This was manually inferred by folks crunching the data, not a stat pulled from Blaseball itself.">[?]</span>`;
           break;
+        case 'checkpoint':
+          explainer = `<span class="explainer" title="Pulled from Resim output">[?]</span>`;
+          break;
+        default:
+          break;
+      }
+      switch (type) {
+        case 'known':
+        case 'manual':
+          contents = `<span title="${uuid}">${name}</span> / ${rollType[rollID] || rollID}`;
+          break;
+        case 'checkpoint':
+          contents = name;
+          break;
         default:
           break;
       }
       return `<span class="${type}">
-        <span title="${uuid}">${name}</span> /
-        ${rollType[rollID] || rollID}
+        ${contents}
         ${dateStr}
         ${explainer}
       </span>`;
@@ -381,7 +404,7 @@ function loadCheckpoint() {
       if (!LMNOPQR[val]) {
         LMNOPQR[val] = [];
       }
-      LMNOPQR[val].push(...CHECKPOINT_LMNOPQR[val]);
+      LMNOPQR[val].push([CHECKPOINT_LMNOPQR[val], 'checkpoint']);
     }
     [...document.querySelectorAll('.rngRow:has(.editLink) .val')].forEach(v => {
       const notes = build_notes(v.innerText);
@@ -389,7 +412,7 @@ function loadCheckpoint() {
         return;
       }
       $(v).next('.notes')
-        .css('opacity', 0)
+        .hide()
         .addClass('checkpointNotes')
         .html(notes);
     });
