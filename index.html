@@ -166,7 +166,7 @@ function build_notes(val) {
       } else if (hit.length === 2) {
         [name, type] = hit;
       } else {
-        return '';
+        return JSON.stringify(hit);
       }
       type = type || 'known';
       let dateStr = '';
