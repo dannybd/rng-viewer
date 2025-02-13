@@ -140,6 +140,14 @@ body.theme-light #results .rngRow.blockStart .s1 {
   font-size: 70%;
   vertical-align: top;
 }
+#results .notes .checkpoint {
+  color: #5988ff;
+}
+#results .notes .checkpoint .explainer {
+  content: '[?]';
+  font-size: 70%;
+  vertical-align: top;
+}
 #loading {
   margin-top: 100px;
   position: absolute;

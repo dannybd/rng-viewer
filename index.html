@@ -159,14 +159,12 @@ function build_notes(val) {
   return lookup
     .map(hit => {
       let [uuid, name, rollID, timestamp, type] = ['', '', '', '', ''];
-      switch (hit.length) {
-        case 5:
-          [uuid, name, rollID, timestamp, type] = hit;
-          break;
-        case 2:
-          [name, type] = hit;
-        default:
-          return '';
+      if (hit.length === 5) {
+        [uuid, name, rollID, timestamp, type] = hit;
+      } else if (hit.length === 2) {
+        [name, type] = hit;
+      } else {
+        return '';
       }
       type = type || 'known';
       let dateStr = '';
@@ -185,6 +183,7 @@ function build_notes(val) {
         default:
           break;
       }
+      let contents = '';
       switch (type) {
         case 'known':
         case 'manual':
@@ -202,6 +201,7 @@ function build_notes(val) {
         ${explainer}
       </span>`;
     })
+    .filter(x => x)
     .join('; <br>');
 }
 
@@ -400,12 +400,15 @@ function loadCheckpoint() {
   console.log('checkpoint!', CHECKPOINT);
   $.get(jsonURLPrefix + `static/checkpoints/${CHECKPOINT.id}.json`, data => {
     CHECKPOINT_LMNOPQR = data;
+    let additions = 0;
     for (val in CHECKPOINT_LMNOPQR) {
       if (!LMNOPQR[val]) {
         LMNOPQR[val] = [];
       }
       LMNOPQR[val].push([CHECKPOINT_LMNOPQR[val], 'checkpoint']);
+      additions++;
     }
+    console.log(`checkpoint: added ${additions} additions to LMNOPQR`);
     [...document.querySelectorAll('.rngRow:has(.editLink) .val')].forEach(v => {
       const notes = build_notes(v.innerText);
       if (!notes) {
