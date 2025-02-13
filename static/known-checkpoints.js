@@ -1328,5 +1328,12 @@ const KNOWN_CHECKPOINTS = {
     "offset": 40,
     "start": "2021-07-30T04:02:00.554Z",
     "end": "2021-07-30T18:17:06.894Z"
+  },
+  "d465e063996": {
+    "id": "d465e063996",
+    "label": "mid-game restart during S12D112",
+    "offset": 0,
+    "start": "2021-03-06T19:26:00Z",
+    "end": "2021-03-06T23:50:00.000Z"
   }
 };
