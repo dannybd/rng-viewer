@@ -161,10 +161,12 @@ function build_notes(val) {
       let [uuid, name, rollID, timestamp, type] = ['', '', '', '', ''];
       if (hit.length === 5) {
         [uuid, name, rollID, timestamp, type] = hit;
+      } else if (hit.length === 4) {
+        [uuid, name, rollID, timestamp] = hit;
       } else if (hit.length === 2) {
         [name, type] = hit;
       } else {
-        return JSON.stringify(hit);
+        return '';
       }
       type = type || 'known';
       let dateStr = '';
