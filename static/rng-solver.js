@@ -488,21 +488,21 @@ function solve_in_math_random_order(rolls) {
 }
 
 function murmurhash3(h) {
-    h ^= h >> 33n;
-    h = (h * 0xFF51AFD7ED558CCDn) & STATE_WIDTH;
-    h ^= h >> 33n;
-    h = (h * 0xC4CEB9FE1A85EC53n) & STATE_WIDTH;
-    h ^= h >> 33n;
-    return h;
+  h ^= h >> 33n;
+  h = (h * 0xFF51AFD7ED558CCDn) & STATE_MASK;
+  h ^= h >> 33n;
+  h = (h * 0xC4CEB9FE1A85EC53n) & STATE_MASK;
+  h ^= h >> 33n;
+  return h;
 }
 
 function murmurhash3_inv(h) {
-    h ^= h >> 33n;
-    h = (h * 0X9CB4B2F8129337DBn) & STATE_WIDTH;
-    h ^= h >> 33n;
-    h = (h * 0X4F74430C22A54005n) & STATE_WIDTH;
-    h ^= h >> 33n;
-    return h;
+  h ^= h >> 33n;
+  h = (h * 0X9CB4B2F8129337DBn) & STATE_MASK;
+  h ^= h >> 33n;
+  h = (h * 0X4F74430C22A54005n) & STATE_MASK;
+  h ^= h >> 33n;
+  return h;
 }
 
 class Rng {
