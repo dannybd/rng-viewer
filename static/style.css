@@ -140,10 +140,10 @@ body.theme-light #results .rngRow.blockStart .s1 {
   font-size: 70%;
   vertical-align: top;
 }
-#results .notes .checkpoint {
+#results .notes .fragment {
   color: #5988ff;
 }
-#results .notes .checkpoint .explainer {
+#results .notes .fragment .explainer {
   content: '[?]';
   font-size: 70%;
   vertical-align: top;

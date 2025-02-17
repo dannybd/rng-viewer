@@ -487,6 +487,24 @@ function solve_in_math_random_order(rolls) {
   return solutions;
 }
 
+function murmurhash3(h) {
+    h ^= h >> 33n;
+    h = (h * 0xFF51AFD7ED558CCDn) & STATE_WIDTH;
+    h ^= h >> 33n;
+    h = (h * 0xC4CEB9FE1A85EC53n) & STATE_WIDTH;
+    h ^= h >> 33n;
+    return h;
+}
+
+function murmurhash3_inv(h) {
+    h ^= h >> 33n;
+    h = (h * 0X9CB4B2F8129337DBn) & STATE_WIDTH;
+    h ^= h >> 33n;
+    h = (h * 0X4F74430C22A54005n) & STATE_WIDTH;
+    h ^= h >> 33n;
+    return h;
+}
+
 class Rng {
   constructor(state, offset, rng_mode = null) {
     this.state = state;
@@ -536,23 +554,30 @@ class Rng {
     return `https://rng.sibr.dev/?state=${this.getStateStr()}` + modeParam;
   }
 
-  clone() {
-    return new Rng(this.state, this.offset, this.mode);
+  static fromSeed(seedHex, offset) {
+    const seed = BigInt('0x'+seedHex);
+    let state0 = murmurhash3(seed) & STATE_MASK;
+    let state1 = murmurhash3(~seed) & STATE_MASK;
+    const rng = new Rng([state0, state1], 63);
+    rng.step(offset || 0);
+    return rng;
   }
 
-  getCheckpoint() {
-    const rng = this.clone();
-    const checkpointMaskSize = 20n;
-    const checkpointMask = (1n << checkpointMaskSize) - 1n;
-    let distance = 0;
-    while (rng.state[0] & checkpointMask) {
-      distance++;
-      rng.prev();
+  getSeed() {
+    let [state0, state1] = [this.s0, this.s1];
+    for (let distance = 0; distance++; distance < 1E7) {
+      let seed0 = murmurhash3_inv(state0) & STATE_MASK;
+      let seed1 = ~murmurhash3_inv(state1) & STATE_MASK;
+      if (seed0 === seed1) {
+        return {
+          seed: seed0.toString(16),
+          stepsBack: distance,
+          expectedOffset: (distance + 63) % 64,
+        };
+      }
+      [state0, state1] = xs128p_backward(state0, state1);
     }
-    return {
-      checkpoint: (rng.state[0] >> checkpointMaskSize).toString(16),
-      stepsBack: distance,
-    };
+    return null;
   }
 
   value() {

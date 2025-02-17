@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="static/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
   <script src="static/manual-lmnopqr.js"></script>
-  <script src="static/known-checkpoints.js"></script>
   <script src="static/rng-solver.js"></script>
   <!--
   <meta property="theme-color" content="#000000">
@@ -179,7 +178,7 @@ function build_notes(val) {
         case 'manual':
           explainer = `<span class="explainer" title="This was manually inferred by folks crunching the data, not a stat pulled from Blaseball itself.">[?]</span>`;
           break;
-        case 'checkpoint':
+        case 'fragment':
           explainer = `<span class="explainer" title="Pulled from Resim output">[?]</span>`;
           break;
         default:
@@ -191,7 +190,7 @@ function build_notes(val) {
         case 'manual':
           contents = `<span title="${uuid}">${name}</span> / ${rollType[rollID] || rollID}`;
           break;
-        case 'checkpoint':
+        case 'fragment':
           contents = name;
           break;
         default:
@@ -379,53 +378,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     .show();
 
   $('html, body').animate({scrollTop: $('.rngRow.highlight').offset().top - 400});
-
-  setTimeout(loadCheckpoint, 1000);
 });
-
-let CHECKPOINT = null;
-let CHECKPOINT_LMNOPQR = {};
-function loadCheckpoint() {
-  if (CHECKPOINT) {
-    return;
-  }
-  console.log('start checkpoint...');
-  const priorCheckpoint = (new Rng([s0, s1], offset, RNG_MODE)).getCheckpoint();
-  CHECKPOINT = KNOWN_CHECKPOINTS[priorCheckpoint.checkpoint];
-  if (CHECKPOINT?.canonicalID) {
-    CHECKPOINT = KNOWN_CHECKPOINTS[CHECKPOINT?.canonicalID];
-  }
-  if (!CHECKPOINT) {
-    return;
-  }
-  CHECKPOINT.stepsBack = priorCheckpoint.stepsBack;
-  console.log('checkpoint!', CHECKPOINT);
-  $.get(jsonURLPrefix + `static/checkpoints/${CHECKPOINT.id}.json`, data => {
-    CHECKPOINT_LMNOPQR = data;
-    let additions = 0;
-    for (val in CHECKPOINT_LMNOPQR) {
-      if (!LMNOPQR[val]) {
-        LMNOPQR[val] = [];
-      }
-      LMNOPQR[val].push([CHECKPOINT_LMNOPQR[val], 'checkpoint']);
-      additions++;
-    }
-    console.log(`checkpoint: added ${additions} additions to LMNOPQR`);
-    [...document.querySelectorAll('.rngRow:has(.editLink) .val')].forEach(v => {
-      const notes = build_notes(v.innerText);
-      if (!notes) {
-        return;
-      }
-      $(v).next('.notes')
-        .hide()
-        .addClass('checkpointNotes')
-        .html(notes);
-    });
-    $('.checkpointNotes').fadeIn();
-  }).fail(() => {
-    console.log(`Could not load LMNOPQR for checkpoint ${CHECKPOINT.id}!`);
-  });
-}
 
 let KNOWN_BLOCKS = null;
 let KNOWN_ORIENTATION = null;
