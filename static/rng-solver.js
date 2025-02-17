@@ -565,7 +565,7 @@ class Rng {
 
   getSeed() {
     let [state0, state1] = [this.s0, this.s1];
-    for (let distance = 0; distance++; distance < 1E7) {
+    for (let distance = 0; distance < 1E7; distance++) {
       let seed0 = murmurhash3_inv(state0) & STATE_MASK;
       let seed1 = ~murmurhash3_inv(state1) & STATE_MASK;
       if (seed0 === seed1) {
