@@ -505,6 +505,17 @@ function murmurhash3_inv(h) {
   return h;
 }
 
+/**
+ * node12 takes 64 random bits and runs them through murmurhash3
+ * to create the initial state0 and state1:
+ * https://github.com/v8/v8/blob/5283c8f59cbb1fe9015c64e9725b0f59dc4fe020/src/numbers/math-random.cc#L42-L66
+ */
+function get_state_seed(state0, state1) {
+  const seed0 = murmurhash3_inv(state0) & STATE_MASK;
+  const seed1 = ~murmurhash3_inv(state1) & STATE_MASK;
+  return seed0 === seed1 ? seed0.toString(16) : null;
+}
+
 class Rng {
   constructor(state, offset, rng_mode = null) {
     this.state = state;
@@ -554,23 +565,22 @@ class Rng {
     return `https://rng.sibr.dev/?state=${this.getStateStr()}` + modeParam;
   }
 
-  static fromSeed(seedHex, offset) {
+  static fromSeed(seedHex, stepsAhead) {
     const seed = BigInt('0x'+seedHex);
     let state0 = murmurhash3(seed) & STATE_MASK;
-    let state1 = murmurhash3(~seed) & STATE_MASK;
-    const rng = new Rng([state0, state1], 63);
-    rng.step(offset || 0);
+    let state1 = murmurhash3(~seed & STATE_MASK) & STATE_MASK;
+    const rng = new Rng([state0, state1], 63, );
+    rng.step(stepsAhead || 0);
     return rng;
   }
 
-  getSeed() {
+  getSeed(maxDistance) {
     let [state0, state1] = this.state;
-    for (let distance = 0; distance < 1E7; distance++) {
-      let seed0 = murmurhash3_inv(state0) & STATE_MASK;
-      let seed1 = ~murmurhash3_inv(state1) & STATE_MASK;
-      if (seed0 === seed1) {
+    for (let distance = 0; distance <= (maxDistance || 1E7); distance++) {
+      let seed = get_state_seed(state0, state1);
+      if (seed !== null) {
         return {
-          seed: seed0.toString(16),
+          seed: seed,
           stepsBack: distance,
           expectedOffset: (distance + 63) % 64,
         };

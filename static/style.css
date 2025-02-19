@@ -98,6 +98,26 @@ body.theme-light #results .rngRow.blockEnd .s0,
 body.theme-light #results .rngRow.blockStart .s1 {
   color: deeppink;
 }
+#results tr.boundaryRow {
+  background-color: #88888840;
+  cursor: pointer;
+  font-size: 75%;
+  text-align: center;
+}
+#results tr.boundaryRow.disabled td {
+  opacity: 0;
+}
+#results tr.boundaryRow.disabled:after {
+  content: 'Loading...';
+  font-style: italic;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+#results tr.boundaryRow.seed {
+  background-color: #ff000040;
+  cursor: initial;
+}
 #results .rngRow.highlight {
   background-color: #ffff0040;
 }

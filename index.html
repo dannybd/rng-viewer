@@ -101,14 +101,28 @@ const BOOKMARKS = [
 ];
 
 function dump_around(s0, s1, blocks, offset) {
-  const rng = new Rng([s0, s1], offset, RNG_MODE);
-  rng.step(-1 * BLOCK_SIZE * (blocks + 1) + offset);
+  const rng = currentRNG();
+  // seed follows rng block order, not Math.random() order
+  const seed = rng.getSeed(BLOCK_SIZE * blocks + offset + 1);
+  if (seed === null) {
+    // Adding additional blocks, plus the difference the remaining
+    // before the offset in the current block roll
+    rng.step(-1 * (BLOCK_SIZE * blocks + BLOCK_SIZE - offset));
+  } else {
+    console.log(`Found seed ${seed.seed} ${seed.stepsBack} steps back!`);
+    let stepsBack = seed.stepsBack;
+    while (stepsBack > BLOCK_SIZE) {
+      rng.step(-1 * BLOCK_SIZE);
+      stepsBack -= BLOCK_SIZE;
+    }
+    rng.step(stepsBack - BLOCK_SIZE - 1);
+  }
   const rows = [];
-  for (let i = 0; i < (blocks * 2 + 1) * BLOCK_SIZE; i++) {
+  for (let i = 0; i < (2 * blocks + 1) * BLOCK_SIZE; i++) {
     rng.next();
     rows.push([...rng.state, rng.value()]);
   }
-  return rows;
+  return [seed, rows];
 }
 
 function permalink(s0, s1, offset, mode) {
@@ -150,8 +164,25 @@ function make_row(n, s0, s1, val) {
   </tr>`;
 }
 
+function make_prefix_row(seed) {
+  if (!seed) {
+    return `<tr class="boundaryRow prefix">
+      <td colspan="100%">⬆️ Load ${BLOCK_SIZE} earlier rolls ⬆️</td>
+    </tr>`;
+  }
+  return `<tr class="boundaryRow seed">
+    <td colspan="100%">⚡️ Fragment start: <tt>${seed.seed}</tt> ⚡️</td>
+  </tr>`;
+}
+
+function make_suffix_row() {
+  return `<tr class="boundaryRow suffix">
+    <td colspan="100%">⬇️ Load next ${BLOCK_SIZE} rolls ⬇️</td>
+  </tr>`;
+}
+
 function build_notes(val) {
-  const lookup = LMNOPQR[val];
+  let lookup = LMNOPQR[val];
   if (!lookup) {
     return '';
   }
@@ -275,6 +306,7 @@ const {
   block_size: BLOCK_SIZE,
   mode: RNG_MODE,
 } = Rng.getPropertiesForMode(search.get('mode'));
+const currentRNG = () => new Rng([s0, s1], offset, RNG_MODE);
 
 if (RNG_MODE === 'node10') {
   $('#mode').attr('title', 'Switch to Node 12');
@@ -337,6 +369,8 @@ __MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
   MANUAL_LMNOPQR[val].push(entry);
 });
 
+let KNOWN_SEED = null;
+let RNG_ROWS = [];
 $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   LMNOPQR = data;
   for (val in MANUAL_LMNOPQR) {
@@ -348,18 +382,21 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   if (s0 === null || s1 === null) {
     return;
   }
-  const rows = dump_around(s0, s1, blocks, offset);
+  let KNOWN_SEED = null;
+  [KNOWN_SEED, RNG_ROWS] = dump_around(s0, s1, blocks, offset);
 
-  const startIndex = rows.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
+  const startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
 
   $('#loading').hide();
   $('#results tbody').html(
-    rows
+    make_prefix_row(KNOWN_SEED) + '\n' +
+    RNG_ROWS
       .map((row, i) => make_row(i - startIndex, ...row))
-      .join('\n'),
+      .join('\n') +
+    '\n' + make_suffix_row(),
   );
 
-  const csv = rows
+  const csv = RNG_ROWS
     .map(([s0, s1, val], i) => {
       const lookup = LMNOPQR[val];
       let extra = ',,,';
@@ -378,6 +415,44 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     .show();
 
   $('html, body').animate({scrollTop: $('.rngRow.highlight').offset().top - 400});
+
+  $('.prefix:not(.disabled)').click(() => {
+    $('.prefix').addClass('disabled');
+    const rollDistance = -1 - startIndex;
+    let row = RNG_ROWS[0];
+    const rng = new Rng([row[0], row[1]], BLOCK_SIZE - 1, RNG_MODE);
+    const seed = rng.getSeed(2 * BLOCK_SIZE);
+    const newRows = [];
+    for (let i = 0; i < BLOCK_SIZE; i++) {
+      rng.prev();
+      let row = [...rng.state, rng.value()];
+      RNG_ROWS.unshift(row);
+      newRows.unshift(make_row(rollDistance - i, ...row));
+    }
+    $('.prefix').after(newRows.join('\n'));
+    if (seed === null) {
+      $('.prefix').removeClass('disabled');
+    } else {
+      $('.prefix').replaceWith(make_prefix_row(seed));
+    }
+  });
+
+  $('.suffix:not(.disabled)').click(() => {
+    $('.suffix').addClass('disabled');
+    const rollDistance = RNG_ROWS.length - startIndex;
+    let row = RNG_ROWS[RNG_ROWS.length - 1];
+    const rng = new Rng([row[0], row[1]], 0, RNG_MODE);
+    const newRows = [];
+    for (let i = 0; i < BLOCK_SIZE; i++) {
+      rng.next();
+      let row = [...rng.state, rng.value()];
+      RNG_ROWS.push(row);
+      newRows.push(make_row(rollDistance + i, ...row));
+    }
+    $('.suffix').before(newRows.join('\n'));
+    $('.suffix').removeClass('disabled');
+    $('html, body').animate({scrollTop: $('.suffix').offset().top});
+  });
 });
 
 let KNOWN_BLOCKS = null;
@@ -393,8 +468,8 @@ function findOrientation(maxDistance, direction=0) {
   }
   const shouldRunBackwards = direction <= 0;
   const shouldRunForwards = direction >= 0;
-  let backRng = new Rng([s0, s1], offset, RNG_MODE);
-  let forwRng = new Rng([s0, s1], offset, RNG_MODE);
+  let backRng = currentRNG();
+  let forwRng = currentRNG();
   let backKey = forwKey = null;
   for (let rolls = 0; rolls < maxDistance; rolls++) {
     if (shouldRunBackwards) {
