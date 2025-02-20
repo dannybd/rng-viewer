@@ -569,7 +569,11 @@ class Rng {
     const seed = BigInt('0x'+seedHex);
     let state0 = murmurhash3(seed) & STATE_MASK;
     let state1 = murmurhash3(~seed & STATE_MASK) & STATE_MASK;
-    const rng = new Rng([state0, state1], 63, );
+    const block_size = Rng.getPropertiesForMode('node12').block_size;
+    for (let i = 0; i < block_size; i++) {
+      [state0, state1] = xs128p(state0, state1);
+    }
+    const rng = new Rng([state0, state1], block_size - 1, 'node12');
     rng.step(stepsAhead || 0);
     return rng;
   }

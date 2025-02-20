@@ -77,9 +77,11 @@ body.theme-light #results th {
   background: white;
 }
 #whereami {
+  background-color: black;
   color: inherit;
   position: absolute;
   right: 10px;
+  width: 120px;
 }
 body.theme-dark .rngRow.odd {
   background-color: #111;

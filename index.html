@@ -109,7 +109,6 @@ function dump_around(s0, s1, blocks, offset) {
     // before the offset in the current block roll
     rng.step(-1 * (BLOCK_SIZE * blocks + BLOCK_SIZE - offset));
   } else {
-    console.log(`Found seed ${seed.seed} ${seed.stepsBack} steps back!`);
     let stepsBack = seed.stepsBack;
     while (stepsBack > BLOCK_SIZE) {
       rng.step(-1 * BLOCK_SIZE);
@@ -382,8 +381,10 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   if (s0 === null || s1 === null) {
     return;
   }
-  let KNOWN_SEED = null;
   [KNOWN_SEED, RNG_ROWS] = dump_around(s0, s1, blocks, offset);
+  if (KNOWN_SEED !== null && checkCorrectOffset()) {
+    return;
+  }
 
   const startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
 
@@ -422,6 +423,9 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     let row = RNG_ROWS[0];
     const rng = new Rng([row[0], row[1]], BLOCK_SIZE - 1, RNG_MODE);
     const seed = rng.getSeed(2 * BLOCK_SIZE);
+    if (seed !== null && checkCorrectOffset()) {
+      return;
+    }
     const newRows = [];
     for (let i = 0; i < BLOCK_SIZE; i++) {
       rng.prev();
@@ -523,6 +527,23 @@ whereami.onclick = _ => {
 
 let maxDistance = 100000;
 function displayWhereAmI() {
+  if (RNG_MODE === 'node12') {
+    if (KNOWN_SEED === null) {
+      KNOWN_SEED = currentRNG().getSeed(maxDistance);
+    }
+    if (KNOWN_SEED !== null) {
+      if (checkCorrectOffset()) {
+        return;
+      }
+      alert(
+        `You are looking at part of the "${KNOWN_SEED.seed}" fragment, ` +
+        `${KNOWN_SEED.stepsBack} rolls afterward.`,
+      );
+      whereami.innerText = 'Where am I?';
+      whereami.disabled = false;
+      return;
+    }
+  }
   const orientation = findOrientation(maxDistance);
   whereami.innerText = 'Where am I?';
   whereami.disabled = false;
@@ -555,6 +576,26 @@ function displayWhereAmI() {
   if (shouldCorrect) {
     window.location.href = permalink(s0, s1, correctedOffset);
   }
+}
+
+function checkCorrectOffset() {
+  if (RNG_MODE !== 'node12') {
+    return false;
+  }
+  const rng = currentRNG();
+  KNOWN_SEED = rng.getSeed();
+  if (KNOWN_SEED.expectedOffset === rng.offset) {
+    return false;
+  }
+  message = `You are misoriented against fragment ${KNOWN_SEED.seed}!` +
+    `\nProposed offset change: ${offset} -> ${KNOWN_SEED.expectedOffset}` +
+    `\nClick OK to reload with the corrected offset.`;
+  const shouldCorrect = confirm(message);
+  if (shouldCorrect) {
+    window.location.href = permalink(s0, s1, KNOWN_SEED.expectedOffset);
+    return true;
+  }
+  return false;
 }
 
 </script>
