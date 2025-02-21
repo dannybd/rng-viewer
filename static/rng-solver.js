@@ -487,6 +487,10 @@ function solve_in_math_random_order(rolls) {
   return solutions;
 }
 
+function modulo(x, n) {
+  return ((x % n) + n) % n;
+}
+
 function murmurhash3(h) {
   h ^= h >> 33n;
   h = (h * 0xFF51AFD7ED558CCDn) & STATE_MASK;
@@ -579,14 +583,18 @@ class Rng {
   }
 
   getSeed(maxDistance) {
+    if (this.#isNode10()) {
+      return null;
+    }
     let [state0, state1] = this.state;
     for (let distance = 0; distance <= (maxDistance || 1E7); distance++) {
       let seed = get_state_seed(state0, state1);
       if (seed !== null) {
+        const block_size = Rng.getPropertiesForMode('node12').block_size;
         return {
           seed: seed,
-          stepsBack: distance,
-          expectedOffset: (distance + 63) % 64,
+          stepsBack: distance - modulo(distance, block_size) + modulo(-distance, block_size),
+          expectedOffset: modulo(distance - 1, block_size),
         };
       }
       [state0, state1] = xs128p_backward(state0, state1);

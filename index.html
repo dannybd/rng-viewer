@@ -104,18 +104,15 @@ function dump_around(s0, s1, blocks, offset) {
   const rng = currentRNG();
   // seed follows rng block order, not Math.random() order
   const seed = rng.getSeed(BLOCK_SIZE * blocks + offset + 1);
-  if (seed === null) {
-    // Adding additional blocks, plus the difference the remaining
-    // before the offset in the current block roll
-    rng.step(-1 * (BLOCK_SIZE * blocks + BLOCK_SIZE - offset));
+  // Adding additional blocks, plus the difference the remaining
+  // before the offset in the current block roll
+  let stepsBack = seed?.stepsBack ?? null;
+  if (stepsBack !== null) {
+    stepsBack++;
   } else {
-    let stepsBack = seed.stepsBack;
-    while (stepsBack > BLOCK_SIZE) {
-      rng.step(-1 * BLOCK_SIZE);
-      stepsBack -= BLOCK_SIZE;
-    }
-    rng.step(stepsBack - BLOCK_SIZE - 1);
+    stepsBack = BLOCK_SIZE * blocks + BLOCK_SIZE - offset;
   }
+  rng.step(-1 * stepsBack);
   const rows = [];
   for (let i = 0; i < (2 * blocks + 1) * BLOCK_SIZE; i++) {
     rng.next();
@@ -165,9 +162,7 @@ function make_row(n, s0, s1, val) {
 
 function make_prefix_row(seed) {
   if (!seed) {
-    return `<tr class="boundaryRow prefix">
-      <td colspan="100%">⬆️ Load ${BLOCK_SIZE} earlier rolls ⬆️</td>
-    </tr>`;
+    return `<tr class="boundaryRow prefix"><td colspan="100%"></td></tr>`;
   }
   return `<tr class="boundaryRow seed">
     <td colspan="100%">⚡️ Fragment start: <tt>${seed.seed}</tt> ⚡️</td>
@@ -175,9 +170,12 @@ function make_prefix_row(seed) {
 }
 
 function make_suffix_row() {
-  return `<tr class="boundaryRow suffix">
-    <td colspan="100%">⬇️ Load next ${BLOCK_SIZE} rolls ⬇️</td>
-  </tr>`;
+  return `<tr class="boundaryRow suffix"><td colspan="100%"></td></tr>`;
+}
+
+function update_boundary_rows() {
+  $('.prefix td').text(`⬆️ Load ${PAGINATION_SIZE} earlier rolls ⬆️`);
+  $('.suffix td').text(`⬇️ Load next ${PAGINATION_SIZE} rolls ⬇️`);
 }
 
 function build_notes(val) {
@@ -234,10 +232,6 @@ function build_notes(val) {
     })
     .filter(x => x)
     .join('; <br>');
-}
-
-function modulo(x, n) {
-  return ((x % n) + n) % n;
 }
 
 function tryBigInt(val) {
@@ -306,6 +300,7 @@ const {
   mode: RNG_MODE,
 } = Rng.getPropertiesForMode(search.get('mode'));
 const currentRNG = () => new Rng([s0, s1], offset, RNG_MODE);
+let PAGINATION_SIZE = BLOCK_SIZE;
 
 if (RNG_MODE === 'node10') {
   $('#mode').attr('title', 'Switch to Node 12');
@@ -396,6 +391,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
       .join('\n') +
     '\n' + make_suffix_row(),
   );
+  update_boundary_rows();
 
   const csv = RNG_ROWS
     .map(([s0, s1, val], i) => {
@@ -422,12 +418,18 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     const rollDistance = -1 - RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
     let row = RNG_ROWS[0];
     const rng = new Rng([row[0], row[1]], BLOCK_SIZE - 1, RNG_MODE);
-    const seed = rng.getSeed(2 * BLOCK_SIZE);
+    const seed = rng.getSeed(PAGINATION_SIZE + BLOCK_SIZE);
     if (seed !== null && checkCorrectOffset()) {
       return;
     }
     const newRows = [];
-    for (let i = 0; i < BLOCK_SIZE; i++) {
+    let stepsBack = seed?.stepsBack ?? null;
+    if (stepsBack !== null) {
+      stepsBack -= BLOCK_SIZE;
+    } else {
+      stepsBack = PAGINATION_SIZE;
+    }
+    for (let i = 0; i < stepsBack; i++) {
       rng.prev();
       let row = [...rng.state, rng.value()];
       RNG_ROWS.unshift(row);
@@ -439,6 +441,8 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     } else {
       $('.prefix').replaceWith(make_prefix_row(seed));
     }
+    PAGINATION_SIZE += BLOCK_SIZE;
+    update_boundary_rows();
   });
 
   $('.suffix:not(.disabled)').click(() => {
@@ -447,13 +451,15 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     let row = RNG_ROWS[RNG_ROWS.length - 1];
     const rng = new Rng([row[0], row[1]], 0, RNG_MODE);
     const newRows = [];
-    for (let i = 0; i < BLOCK_SIZE; i++) {
+    for (let i = 0; i < PAGINATION_SIZE; i++) {
       rng.next();
       let row = [...rng.state, rng.value()];
       RNG_ROWS.push(row);
       newRows.push(make_row(rollDistance + i, ...row));
     }
     $('.suffix').before(newRows.join('\n'));
+    PAGINATION_SIZE += BLOCK_SIZE;
+    update_boundary_rows();
     $('.suffix').removeClass('disabled');
     $('html, body').animate({scrollTop: $('.suffix').offset().top});
   });
@@ -535,9 +541,23 @@ function displayWhereAmI() {
       if (checkCorrectOffset()) {
         return;
       }
+      let {seed, stepsBack} = KNOWN_SEED;
+      stepsBack++; // 1-indexed for ordinals
+      let ordinal = '';
+      if (modulo(stepsBack, 10) === 1 && modulo(stepsBack, 100) !== 11) {
+        ordinal = 'st';
+      } else if (modulo(stepsBack, 10) === 2 && modulo(stepsBack, 100) !== 12) {
+        ordinal = 'nd';
+      } else if (modulo(stepsBack, 10) === 3 && modulo(stepsBack, 100) !== 13) {
+        ordinal = 'rd';
+      } else {
+        ordinal = 'th';
+      }
+
       alert(
-        `You are looking at part of the "${KNOWN_SEED.seed}" fragment, ` +
-        `${KNOWN_SEED.stepsBack} rolls afterward.`,
+        `You are looking at part of the "${seed}" fragment,\n` +
+        `at the ${stepsBack.toLocaleString()}${ordinal} Math.random() output ` +
+        `after the RNG restarted.`,
       );
       whereami.innerText = 'Where am I?';
       whereami.disabled = false;
