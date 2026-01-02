@@ -517,7 +517,7 @@ function murmurhash3_inv(h) {
 function get_state_seed(state0, state1) {
   const seed0 = murmurhash3_inv(state0) & STATE_MASK;
   const seed1 = ~murmurhash3_inv(state1) & STATE_MASK;
-  return seed0 === seed1 ? seed0.toString(16) : null;
+  return seed0 === seed1 ? seed0.toString(16).padStart(16, '0') : null;
 }
 
 class Rng {

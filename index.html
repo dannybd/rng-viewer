@@ -473,6 +473,10 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   });
 });
 
+let KNOWN_FRAGMENTS = {};
+$.get(jsonURLPrefix + 'static/known-fragments.json', data => {
+  KNOWN_FRAGMENTS = data;
+});
 let KNOWN_BLOCKS = null;
 let KNOWN_ORIENTATION = null;
 
@@ -561,11 +565,12 @@ function displayWhereAmI() {
       } else {
         ordinal = 'th';
       }
+      const label = KNOWN_FRAGMENTS[seed] ? ` (label: "${KNOWN_FRAGMENTS[seed]}")` : '';
 
       alert(
-        `You are looking at part of the "${seed}" fragment,\n` +
-        `at the ${stepsBack.toLocaleString()}${ordinal} Math.random() output ` +
-        `after the RNG restarted.`,
+        `Fragment: ${seed}${label}\n` +
+        `You are looking at the ${stepsBack.toLocaleString()}${ordinal} ` +
+        `Math.random() output after the RNG restarted.`,
       );
       whereami.innerText = 'Where am I?';
       whereami.disabled = false;
