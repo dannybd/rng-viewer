@@ -292,11 +292,20 @@ const jsonURLPrefix =
   location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
 const search = new URLSearchParams(window.location.search);
 const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>\d+))?$/;
+const seedRegex = /^(?<seed>[a-f0-9]{1,16})(?:[ +]+(?<offset>\d+))?$/i;
 
 const {groups: state} = coordRegex.exec(search.get('state')) || {};
-const s0 = tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));
-const s1 = tryBigInt(state?.s1) ?? tryBigInt(search.get('s1'));
-const offset = parseInt(tryBigInt(state?.offset || search.get('offset') || 0n) ?? 0);
+const {groups: seedState} = seedRegex.exec(search.get('seed')) || {};
+let KNOWN_SEED = null;
+let seedRng = null;
+if (seedState?.seed && tryBigInt('0x'+seedState.seed) !== null) {
+  KNOWN_SEED = seedState.seed;
+  seedRng = Rng.fromSeed(KNOWN_SEED);
+  seedRng.step(parseInt(tryBigInt(seedState?.offset || 0n) ?? 0));
+}
+const s0 = seedRng?.state[0] ?? tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));
+const s1 = seedRng?.state[1] ?? tryBigInt(state?.s1) ?? tryBigInt(search.get('s1'));
+const offset = seedRng?.offset ?? parseInt(tryBigInt(state?.offset || search.get('offset') || 0n) ?? 0);
 const blocks = parseInt(tryBigInt(search.get('blocks')) ?? 3n);
 const {
   block_size: BLOCK_SIZE,
@@ -366,7 +375,6 @@ __MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
   MANUAL_LMNOPQR[val].push(entry);
 });
 
-let KNOWN_SEED = null;
 let RNG_ROWS = [];
 $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   LMNOPQR = data;
