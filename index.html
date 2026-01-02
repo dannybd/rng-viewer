@@ -109,9 +109,6 @@ function dump_around(s0, s1, blocks, offset) {
   let stepsBack = seed?.stepsBack ?? null;
   if (stepsBack === null) {
     stepsBack = BLOCK_SIZE * blocks + BLOCK_SIZE - offset;
-  } else if (modulo(stepsBack, BLOCK_SIZE) === 0) {
-    stepsBack -= BLOCK_SIZE;
-    stepsBack++;
   } else {
     stepsBack++;
   }
@@ -299,8 +296,8 @@ const {groups: seedState} = seedRegex.exec(search.get('seed')) || {};
 let KNOWN_SEED = null;
 let seedRng = null;
 if (seedState?.seed && tryBigInt('0x'+seedState.seed) !== null) {
-  KNOWN_SEED = seedState.seed;
-  seedRng = Rng.fromSeed(KNOWN_SEED);
+  seedRng = Rng.fromSeed(seedState.seed);
+  KNOWN_SEED = seedRng.getSeed();
   seedRng.step(parseInt(tryBigInt(seedState?.offset || 0n) ?? 0));
 }
 const s0 = seedRng?.state[0] ?? tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));

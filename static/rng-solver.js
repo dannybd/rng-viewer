@@ -591,6 +591,9 @@ class Rng {
       let seed = get_state_seed(state0, state1);
       if (seed !== null) {
         const block_size = Rng.getPropertiesForMode('node12').block_size;
+        if (modulo(distance, block_size) === 0) {
+          distance -= block_size;
+        }
         return {
           seed: seed,
           stepsBack: distance - modulo(distance, block_size) + modulo(-distance, block_size),
