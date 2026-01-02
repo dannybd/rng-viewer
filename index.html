@@ -107,10 +107,13 @@ function dump_around(s0, s1, blocks, offset) {
   // Adding additional blocks, plus the difference the remaining
   // before the offset in the current block roll
   let stepsBack = seed?.stepsBack ?? null;
-  if (stepsBack !== null) {
+  if (stepsBack === null) {
+    stepsBack = BLOCK_SIZE * blocks + BLOCK_SIZE - offset;
+  } else if (modulo(stepsBack, BLOCK_SIZE) === 0) {
+    stepsBack -= BLOCK_SIZE;
     stepsBack++;
   } else {
-    stepsBack = BLOCK_SIZE * blocks + BLOCK_SIZE - offset;
+    stepsBack++;
   }
   rng.step(-1 * stepsBack);
   const rows = [];
