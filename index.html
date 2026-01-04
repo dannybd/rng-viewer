@@ -361,15 +361,15 @@ if (s0 === null || s1 === null) {
     `<tr>
       <td></td>
       <td></td>
-      <td><select id="fragment-chooser" onchange="location = this.value;">
-        <option selected disabled>Select a Fragment to explore:</option>
-        ${fragmentOptions}
-      </select></td>
-      <td></td>
-      <td></td>
-      <td></td>
+      <td colspan="4">
+        <select id="fragment-chooser" onchange="location = this.value;">
+          <option selected disabled>Select a Fragment to explore</option>
+          ${fragmentOptions}
+        </select>
+        &nbsp;
+        or select a bookmark:
+      </td>
     </tr>`
-    + '<tr><td></td><td></td><td>or select a bookmark:</td><td></td><td></td><td></td></tr>'
     + '<tr><td>&nbsp;</td></tr>'
     + BOOKMARKS
       .map(([label, s0, s1, offset, mode]) => `
