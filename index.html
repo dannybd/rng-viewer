@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="static/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
   <script src="static/manual-lmnopqr.js"></script>
+  <script src="static/known-fragments.js"></script>
   <script src="static/rng-solver.js"></script>
   <!--
   <meta property="theme-color" content="#000000">
@@ -121,11 +122,18 @@ function dump_around(s0, s1, blocks, offset) {
   return [seed, rows];
 }
 
-function permalink(s0, s1, offset, mode) {
+function statePermalink(s0, s1, offset, mode) {
   const blocksParam = blocks !== 3 ? `&blocks=${blocks}` : '';
   mode ??= search.get('mode');
   const modeParam = mode ? `&mode=${mode}` : '';
   return `?state=(${s0},${s1})+${offset}` + blocksParam + modeParam;
+}
+
+function seedPermalink(seed, rolls, mode) {
+  const blocksParam = blocks !== 3 ? `&blocks=${blocks}` : '';
+  mode ??= search.get('mode');
+  const modeParam = mode ? `&mode=${mode}` : '';
+  return `?seed=${seed}+${rolls}` + blocksParam + modeParam;
 }
 
 const formURL = 'https://docs.google.com/forms/d/e/1FAIpQLSebCplJCYPV49ixCXvnJ7MejF8h8dPvJNLeYQRmesiaZ_hThQ/viewform?usp=pp_url&entry.29853088=';
@@ -149,7 +157,7 @@ function make_row(n, s0, s1, val) {
     notes = `<a class="editLink" target="_blank" href="${formURL}${s0},${s1},${rowOffset},${val}">✍️</a>`;
   }
   return `<tr class="${rowClasses.join(' ')}">
-    <td class="link"><a href="${permalink(s0, s1, rowOffset)}">🔗</a></td>
+    <td class="link"><a href="${statePermalink(s0, s1, rowOffset)}">🔗</a></td>
     <td class="rollDistance">${n}</td>
     <td class="stateNum s0">${s0}</td>
     <td class="stateNum s1">${s1}</td>
@@ -164,8 +172,9 @@ function make_prefix_row(seed) {
   if (!seed) {
     return `<tr class="boundaryRow prefix"><td colspan="100%"></td></tr>`;
   }
+  const label = KNOWN_FRAGMENTS[seed.seed] ? ` (${KNOWN_FRAGMENTS[seed.seed]})` : '';
   return `<tr class="boundaryRow seed">
-    <td colspan="100%">⚡️ Fragment start: <tt>${seed.seed}</tt> ⚡️</td>
+    <td colspan="100%">⚡️ Fragment start: <tt>${seed.seed}${label}</tt> ⚡️</td>
   </tr>`;
 }
 
@@ -324,15 +333,33 @@ $('#mode').click(() => {
 });
 
 if (s0 === null || s1 === null) {
+  const fragmentOptions = Object.entries(KNOWN_FRAGMENTS).map(
+      ([seed, label]) =>
+        `<option value="${seedPermalink(seed, 0)}">${label} (${seed})</option>`,
+    )
+    .join('\n');
   $('#loading').hide();
   $('#results thead').hide();
   $('#results tbody').html(
-    BOOKMARKS
+    `<tr>
+      <td></td>
+      <td></td>
+      <td><select id="fragment-chooser" onchange="location = this.value;">
+        <option selected disabled>Select a Fragment to explore:</option>
+        ${fragmentOptions}
+      </select></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>`
+    + '<tr><td></td><td></td><td>or select a bookmark:</td><td></td><td></td><td></td></tr>'
+    + '<tr><td>&nbsp;</td></tr>'
+    + BOOKMARKS
       .map(([label, s0, s1, offset, mode]) => `
         <tr>
           <td></td>
           <td><div style="width: 200px;"></div></td>
-          <td><strong><a href="${permalink(s0, s1, offset, mode)}">${label}</a></strong></td>
+          <td><strong><a href="${statePermalink(s0, s1, offset, mode)}">${label}</a></strong></td>
           <td class="stateNum state0">${s0}</td>
           <td class="stateNum state1">${s1}</td>
           <td><div style="width: 200px;"></div></td>
@@ -346,14 +373,14 @@ if (s0 === null || s1 === null) {
     const options = data
       .sort((a, b) => a.name > b.name ? 1 : -1)
       .map(({name, s0, s1, offset}) =>
-        `<option value="${permalink(s0, s1, offset)}">${name}</option>`,
+        `<option value="${statePermalink(s0, s1, offset)}">${name}</option>`,
       )
       .join('\n');
     $('#results tbody tr:last-child').html(`
       <td></td>
       <td></td>
       <td><select id="player-chooser" onchange="location = this.value;">
-        <option selected disabled>Choose a Season 1 Player</option>
+        <option selected disabled>Jump to a Season 1 Player's generation</option>
         ${options}
       </select></td>
       <td></td>
@@ -473,10 +500,6 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   });
 });
 
-let KNOWN_FRAGMENTS = {};
-$.get(jsonURLPrefix + 'static/known-fragments.json', data => {
-  KNOWN_FRAGMENTS = data;
-});
 let KNOWN_BLOCKS = null;
 let KNOWN_ORIENTATION = null;
 
@@ -607,7 +630,7 @@ function displayWhereAmI() {
     `\nClick OK to reload with the corrected offset.`;
   const shouldCorrect = confirm(message);
   if (shouldCorrect) {
-    window.location.href = permalink(s0, s1, correctedOffset);
+    window.location.href = statePermalink(s0, s1, correctedOffset);
   }
 }
 
@@ -625,7 +648,7 @@ function checkCorrectOffset() {
     `\nClick OK to reload with the corrected offset.`;
   const shouldCorrect = confirm(message);
   if (shouldCorrect) {
-    window.location.href = permalink(s0, s1, KNOWN_SEED.expectedOffset);
+    window.location.href = statePermalink(s0, s1, KNOWN_SEED.expectedOffset);
     return true;
   }
   return false;

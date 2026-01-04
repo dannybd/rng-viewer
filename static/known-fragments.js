@@ -1,4 +1,4 @@
-{
+const KNOWN_FRAGMENTS = {
   "0eeb2966d0cf3cfd": "S1 Player gen + S1 D1-D2",
   "7b2b88d40a28030a": "S1 D3-D17",
   "659cc200b9082247": "S1 D18-D49",
@@ -265,4 +265,4 @@
   "9f01e04ca99e4b21": "S24 D74-D79 (Late S24)",
   "3191ee940a877d19": "S24 D81 (Late S24 2)",
   "dfd5d561c2d58e0f": "S24 D83-D97 (Late S24 3)"
-}
+};
