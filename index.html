@@ -156,9 +156,23 @@ function make_row(n, s0, s1, val) {
   if (!notes) {
     notes = `<a class="editLink" target="_blank" href="${formURL}${s0},${s1},${rowOffset},${val}">✍️</a>`;
   }
+  let seedLink = '';
+  const seedOrdinal = n + (KNOWN_SEED?.stepsBack ?? 0);
+  if (KNOWN_SEED) {
+    seedLink = `
+      <a
+        title="Seed Link: ${KNOWN_SEED.seed}+${seedOrdinal}"
+        href="${seedPermalink(KNOWN_SEED.seed, seedOrdinal)}">🥯</a>
+    `;
+  }
   return `<tr class="${rowClasses.join(' ')}">
-    <td class="link"><a href="${statePermalink(s0, s1, rowOffset)}">🔗</a></td>
-    <td class="rollDistance">${n}</td>
+    <td class="link">
+      <a
+        title="State Link: (${s0},${s1})+${rowOffset}"
+        style="${KNOWN_SEED ? '' : 'padding: 4px 25px;'}"
+        href="${statePermalink(s0, s1, rowOffset)}">🔗</a>${seedLink}
+    </td>
+    <td class="rollDistance${seedRng ? ' seedOrdinal' : ''}">${seedRng ? seedOrdinal : n}</td>
     <td class="stateNum s0">${s0}</td>
     <td class="stateNum s1">${s1}</td>
     <td class="stateNum offset">${rowOffset}</td>
@@ -298,7 +312,7 @@ const jsonURLPrefix =
   location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
 const search = new URLSearchParams(window.location.search);
 const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>\d+))?$/;
-const seedRegex = /^(?<seed>[a-f0-9]{1,16})(?:[ +]+(?<offset>\d+))?$/i;
+const seedRegex = /^(?<seed>[a-f0-9]{1,16})(?:[ +]+(?<rolls>\d+))?$/i;
 
 const {groups: state} = coordRegex.exec(search.get('state')) || {};
 const {groups: seedState} = seedRegex.exec(search.get('seed')) || {};
@@ -306,8 +320,8 @@ let KNOWN_SEED = null;
 let seedRng = null;
 if (seedState?.seed && tryBigInt('0x'+seedState.seed) !== null) {
   seedRng = Rng.fromSeed(seedState.seed);
+  seedRng.step(parseInt(tryBigInt(seedState?.rolls || 0n) ?? 0));
   KNOWN_SEED = seedRng.getSeed();
-  seedRng.step(parseInt(tryBigInt(seedState?.offset || 0n) ?? 0));
 }
 const s0 = seedRng?.state[0] ?? tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));
 const s1 = seedRng?.state[1] ?? tryBigInt(state?.s1) ?? tryBigInt(search.get('s1'));
@@ -318,6 +332,7 @@ const {
   mode: RNG_MODE,
 } = Rng.getPropertiesForMode(search.get('mode'));
 const currentRNG = () => new Rng([s0, s1], offset, RNG_MODE);
+KNOWN_SEED ??= currentRNG().getSeed();
 let PAGINATION_SIZE = BLOCK_SIZE;
 
 if (RNG_MODE === 'node10') {
@@ -411,8 +426,14 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   if (s0 === null || s1 === null) {
     return;
   }
-  [KNOWN_SEED, RNG_ROWS] = dump_around(s0, s1, blocks, offset);
-  if (KNOWN_SEED !== null && checkCorrectOffset()) {
+  if (seedRng !== null) {
+    $('.rollDistance:first')
+      .html('Roll #')
+      .addClass('seedOrdinal')
+      .attr('title', 'From the beginning of the fragment, what # Math.random output is this?');
+  }
+  [reachedSeed, RNG_ROWS] = dump_around(s0, s1, blocks, offset);
+  if (reachedSeed !== null && checkCorrectOffset()) {
     return;
   }
 
@@ -420,7 +441,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
 
   $('#loading').hide();
   $('#results tbody').html(
-    make_prefix_row(KNOWN_SEED) + '\n' +
+    make_prefix_row(reachedSeed) + '\n' +
     RNG_ROWS
       .map((row, i) => make_row(i - startIndex, ...row))
       .join('\n') +
@@ -458,12 +479,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
       return;
     }
     const newRows = [];
-    let stepsBack = seed?.stepsBack ?? null;
-    if (stepsBack !== null) {
-      stepsBack -= BLOCK_SIZE;
-    } else {
-      stepsBack = PAGINATION_SIZE;
-    }
+    let stepsBack = seed?.stepsBack ?? PAGINATION_SIZE;
     for (let i = 0; i < stepsBack; i++) {
       rng.prev();
       let row = [...rng.state, rng.value()];
@@ -569,9 +585,7 @@ whereami.onclick = _ => {
 let maxDistance = 100000;
 function displayWhereAmI() {
   if (RNG_MODE === 'node12') {
-    if (KNOWN_SEED === null) {
-      KNOWN_SEED = currentRNG().getSeed(maxDistance);
-    }
+    KNOWN_SEED ??= currentRNG().getSeed(maxDistance);
     if (KNOWN_SEED !== null) {
       if (checkCorrectOffset()) {
         return;
@@ -639,7 +653,7 @@ function checkCorrectOffset() {
     return false;
   }
   const rng = currentRNG();
-  KNOWN_SEED = rng.getSeed();
+  KNOWN_SEED ??= rng.getSeed();
   if (KNOWN_SEED.expectedOffset === rng.offset) {
     return false;
   }

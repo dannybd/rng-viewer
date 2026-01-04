@@ -127,16 +127,23 @@ body.theme-light #results .rngRow.blockStart .s1 {
   color: inherit;
   font-weight: bold;
 }
+#results .rollDistance.seedOrdinal {
+  color: #5988ff;
+}
 #results .link {
   font-size: 50%;
   text-align: center;
 }
 #results tbody .link a {
   opacity: 0;
-  padding: 0 25px;
+  padding: 4px 10px;
 }
 #results tr:hover .link a {
   opacity: 1;
+}
+#results tr:hover .link a:hover {
+  background-color: #ffffff30;
+  border-radius: 20px;
 }
 #results tbody .editLink {
   opacity: 0;
