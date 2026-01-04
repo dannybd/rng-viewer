@@ -332,7 +332,9 @@ const {
   mode: RNG_MODE,
 } = Rng.getPropertiesForMode(search.get('mode'));
 const currentRNG = () => new Rng([s0, s1], offset, RNG_MODE);
-KNOWN_SEED ??= currentRNG().getSeed();
+if (KNOWN_SEED === null && s0 !== null && s1 !== null) {
+  KNOWN_SEED = currentRNG().getSeed();
+}
 let PAGINATION_SIZE = BLOCK_SIZE;
 
 if (RNG_MODE === 'node10') {
