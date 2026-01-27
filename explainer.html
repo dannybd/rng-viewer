@@ -28,6 +28,12 @@
     and
     <a href="https://github.com/xSke/resim/blob/main/rng_solver.py">this repo</a>.
   </p>
+  <p style="background-color: #DD0000; border: 4px solid red; font-size: 12px; margin-top: 8px; width: 75%;">
+    <strong>UPDATE:</strong> As of January 2026, Chromium
+    <a href="https://chromiumdash.appspot.com/commit/0596ead5b04f5988d7742c2a4559637a4f81b849">has a patch for <tt>Math.random()</tt></a>
+    which renders it harder to crack. The research in this website still holds historically,
+    but also more research is required before we can re-enable live-cracking of the current <tt>Math.random()</tt> seed.
+  </p>
 </header>
 <div id="settings">
   <button id="lightdark" title="Toggle light and dark mode">🌗</button><br>
@@ -174,7 +180,7 @@ function test3() {
   }
 }
 
-runTest(test3, 'Math.random() prediction');
+// runTest(test3, 'Math.random() prediction');
 
 function test4() {
   const numFlips = 250;
@@ -230,7 +236,7 @@ function test4() {
   console.log('   Actual next 50 coin flips:', actual);
 }
 
-runTest(test4, 'Coin flip');
+// runTest(test4, 'Coin flip');
 
 function testDivine() {
   $('#divine').prop('disabled', true);
