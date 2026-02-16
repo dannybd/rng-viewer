@@ -528,6 +528,8 @@ class Rng {
     this.mode = mode;
     this.block_size = block_size;
     this.to_double = to_double;
+    this.seed = null;
+    this.rollIndex = null;
   }
 
   static fromStateStr(str) {
@@ -564,12 +566,7 @@ class Rng {
     return `(${this.state[0]},${this.state[1]})+${this.offset}`;
   }
 
-  getStateURL() {
-    const modeParam = this.#isNode10() ? `&mode=${this.mode}` : '';
-    return `https://rng.sibr.dev/?state=${this.getStateStr()}` + modeParam;
-  }
-
-  static fromSeed(seedHex, stepsAhead) {
+  static fromSeed(seedHex, rollIndex) {
     const seed = BigInt('0x'+seedHex);
     let state0 = murmurhash3(seed) & STATE_MASK;
     let state1 = murmurhash3(~seed & STATE_MASK) & STATE_MASK;
@@ -578,7 +575,8 @@ class Rng {
       [state0, state1] = xs128p(state0, state1);
     }
     const rng = new Rng([state0, state1], block_size - 1, 'node12');
-    rng.step(stepsAhead || 0);
+    rng.step(rollIndex || 0);
+    rng.getSeed();
     return rng;
   }
 
@@ -594,9 +592,11 @@ class Rng {
         if (modulo(distance, block_size) === 0) {
           distance -= block_size;
         }
+        this.seed = seed;
+        this.rollIndex = distance - modulo(distance, block_size) + modulo(-distance, block_size);
         return {
           seed: seed,
-          stepsBack: distance - modulo(distance, block_size) + modulo(-distance, block_size),
+          rollIndex: this.rollIndex,
           expectedOffset: modulo(distance - 1, block_size),
         };
       }
@@ -631,7 +631,32 @@ class Rng {
     }
 
     this.#stepRaw(-steps);
+    if (this.rollIndex !== null) {
+      this.rollIndex += steps;
+    }
     return this.value();
+  }
+
+  clone() {
+    const clone = Rng.fromStateStr(this.getStateStr());
+    clone.seed = this.seed;
+    clone.rollIndex = this.rollIndex;
+    return clone;
+  }
+
+  searchAhead(needle, _tolerance) {
+    if (needle < 0 || needle > 1) {
+      return null;
+    }
+    const tolerance = _tolerance || 0.000001;
+    const rng = this.clone();
+    for (let distance = 0; distance <= 2E6; distance++) {
+      if (Math.abs(rng.value() - needle) <= tolerance) {
+        return rng;
+      }
+      rng.next();
+    }
+    return null;
   }
 
   #stepRaw(amount) {

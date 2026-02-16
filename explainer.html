@@ -132,7 +132,7 @@ function test2() {
 
   for (let {state, offset, crossesBlockBoundary} of results) {
     let rng = new Rng(state, offset);
-    let url = rng.getStateURL();
+    let url = `https://rng.sibr.dev/?state=${rng.getStateStr()}`;
     console.log(`got solution: <a target="_blank" href="${url}">${url}</a>`);
     let predicted = rng.step(rolls.length);
     console.log(
@@ -161,7 +161,7 @@ function test3() {
 
   for (let {state, offset, crossesBlockBoundary} of results) {
     let rng = new Rng(state, offset);
-    let url = rng.getStateURL();
+    let url = `https://rng.sibr.dev/?state=${rng.getStateStr()}`;
     console.log(`got solution: <a target="_blank" href="${url}">${url}</a>`);
     let predicted = rng.step(rolls.length);
     console.log(
@@ -220,7 +220,7 @@ function test4() {
 
   for (let {state, offset, crossesBlockBoundary} of results) {
     let rng = new Rng(state, offset);
-    let url = rng.getStateURL();
+    let url = `https://rng.sibr.dev/?state=${rng.getStateStr()}`;
     rng.step(flips.length - 1);
     console.log(`Got solution: <a target="_blank" href="${url}">${url}</a>`);
     let predicted = '';

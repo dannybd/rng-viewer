@@ -107,13 +107,13 @@ function dump_around(s0, s1, blocks, offset) {
   const seed = rng.getSeed(BLOCK_SIZE * blocks + offset + 1);
   // Adding additional blocks, plus the difference the remaining
   // before the offset in the current block roll
-  let stepsBack = seed?.stepsBack ?? null;
-  if (stepsBack === null) {
-    stepsBack = BLOCK_SIZE * blocks + BLOCK_SIZE - offset;
+  let rollIndex = seed?.rollIndex ?? null;
+  if (rollIndex === null) {
+    rollIndex = BLOCK_SIZE * blocks + BLOCK_SIZE - offset;
   } else {
-    stepsBack++;
+    rollIndex++;
   }
-  rng.step(-1 * stepsBack);
+  rng.step(-1 * rollIndex);
   const rows = [];
   for (let i = 0; i < (2 * blocks + 1) * BLOCK_SIZE; i++) {
     rng.next();
@@ -157,7 +157,7 @@ function make_row(n, s0, s1, val) {
     notes = `<a class="editLink" target="_blank" href="${formURL}${s0},${s1},${rowOffset},${val}">✍️</a>`;
   }
   let seedLink = '';
-  const seedOrdinal = n + (KNOWN_SEED?.stepsBack ?? 0);
+  const seedOrdinal = n + (KNOWN_SEED?.rollIndex ?? 0);
   if (KNOWN_SEED) {
     seedLink = `
       <a
@@ -481,8 +481,8 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
       return;
     }
     const newRows = [];
-    let stepsBack = seed?.stepsBack ?? PAGINATION_SIZE;
-    for (let i = 0; i < stepsBack; i++) {
+    let rollIndex = seed?.rollIndex ?? PAGINATION_SIZE;
+    for (let i = 0; i < rollIndex; i++) {
       rng.prev();
       let row = [...rng.state, rng.value()];
       RNG_ROWS.unshift(row);
@@ -592,14 +592,14 @@ function displayWhereAmI() {
       if (checkCorrectOffset()) {
         return;
       }
-      let {seed, stepsBack} = KNOWN_SEED;
-      stepsBack++; // 1-indexed for ordinals
+      let {seed, rollIndex} = KNOWN_SEED;
+      rollIndex++; // 1-indexed for ordinals
       let ordinal = '';
-      if (modulo(stepsBack, 10) === 1 && modulo(stepsBack, 100) !== 11) {
+      if (modulo(rollIndex, 10) === 1 && modulo(rollIndex, 100) !== 11) {
         ordinal = 'st';
-      } else if (modulo(stepsBack, 10) === 2 && modulo(stepsBack, 100) !== 12) {
+      } else if (modulo(rollIndex, 10) === 2 && modulo(rollIndex, 100) !== 12) {
         ordinal = 'nd';
-      } else if (modulo(stepsBack, 10) === 3 && modulo(stepsBack, 100) !== 13) {
+      } else if (modulo(rollIndex, 10) === 3 && modulo(rollIndex, 100) !== 13) {
         ordinal = 'rd';
       } else {
         ordinal = 'th';
@@ -608,7 +608,7 @@ function displayWhereAmI() {
 
       alert(
         `Fragment: ${seed}${label}\n` +
-        `You are looking at the ${stepsBack.toLocaleString()}${ordinal} ` +
+        `You are looking at the ${rollIndex.toLocaleString()}${ordinal} ` +
         `Math.random() output after the RNG restarted.`,
       );
       whereami.innerText = 'Where am I?';
