@@ -463,7 +463,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     return;
   }
 
-  const startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
+  let startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
 
   $('#loading').hide();
   $('#results tbody').html(
@@ -497,7 +497,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
 
   $('.prefix:not(.disabled)').click(() => {
     $('.prefix').addClass('disabled');
-    const rollDistance = -1 - RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
+    const rollDistance = -1 - startIndex;
     let row = RNG_ROWS[0];
     const rng = new Rng([row[0], row[1]], BLOCK_SIZE - 1, RNG_MODE);
     const seed = rng.getSeed(PAGINATION_SIZE + BLOCK_SIZE);
@@ -520,6 +520,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     }
     PAGINATION_SIZE += BLOCK_SIZE;
     update_boundary_rows();
+    startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
   });
 
   $('.suffix:not(.disabled)').click(() => {
