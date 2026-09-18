@@ -523,6 +523,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     PAGINATION_SIZE += BLOCK_SIZE;
     update_boundary_rows();
     startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
+    applyFragmentLabels();
   });
 
   $('.suffix:not(.disabled)').click(() => {
@@ -542,6 +543,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     update_boundary_rows();
     $('.suffix').removeClass('disabled');
     $('html, body').animate({scrollTop: $('.suffix').offset().top});
+    applyFragmentLabels();
   });
 
   if (KNOWN_SEED !== null) {
