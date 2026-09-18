@@ -11,6 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.js"></script>
   <script src="static/manual-lmnopqr.js"></script>
   <script src="static/known-fragments.js"></script>
+  <script src="static/blaseball-hours.js"></script>
   <script src="static/rng-solver.js"></script>
   <!--
   <meta property="theme-color" content="#000000">
@@ -432,6 +433,7 @@ if (s0 === null || s1 === null) {
 }
 
 const MANUAL_LMNOPQR = {};
+const FRAGMENT_DATA = {};
 __MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
   entry[4] = 'manual';
   if (!MANUAL_LMNOPQR[val]) {
@@ -541,7 +543,95 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
     $('.suffix').removeClass('disabled');
     $('html, body').animate({scrollTop: $('.suffix').offset().top});
   });
+
+  if (KNOWN_SEED !== null) {
+    $.getJSON(`${jsonURLPrefix}fragments/${KNOWN_SEED.seed}.json`, data => {
+      if (data.fragment !== KNOWN_SEED.seed) {
+        console.error(`Returned fragment ${data.fragment} does not match ${KNOWN_SEED.seed}!`);
+        return;
+      }
+      data.sections.forEach(section => {
+        section.rolls.forEach((roll, i) => {
+          FRAGMENT_DATA[section.rollIndex + i] = {
+            rollIndex: section.rollIndex + i,
+            time: get_blaseball_hour_info(roll.t),
+            awayAtHome: getAwayAtHome(roll),
+            label: roll.l,
+            threshold: roll.threshold ?? null,
+            passed: roll.passed ?? null,
+          };
+        });
+      });
+      applyFragmentLabels();
+    });
+  }
 });
+
+function getAwayAtHome(roll) {
+  if (!roll.a || !roll.h) {
+    return null;
+  }
+  const shortIDsToNicknames = {
+    0: 'Unknown',
+    1: 'Lovers',
+    2: 'Tacos',
+    3: 'Steaks',
+    4: 'Breath Mints',
+    5: 'Firefighters',
+    6: 'Shoe Thieves',
+    7: 'Flowers',
+    8: 'Fridays',
+    9: 'Magic',
+    10: 'Millennials',
+    11: 'Crabs',
+    12: 'Pies',
+    13: 'Sunbeams',
+    14: 'Wild Wings',
+    15: 'Tigers',
+    16: 'Moist Talkers',
+    17: 'Spies',
+    18: 'Dale',
+    19: 'Garages',
+    20: 'Jazz Hands',
+    21: 'Lift',
+    22: 'Mechanics',
+    23: 'Georgias',
+    24: 'Worms',
+  };
+  const away = shortIDsToNicknames[roll.a] ?? shortIDsToNicknames[0];
+  const home = shortIDsToNicknames[roll.h] ?? shortIDsToNicknames[0];
+  return `${away} @ ${home}`;
+}
+
+function applyFragmentLabels() {
+  const startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
+  const minRollIndex = KNOWN_SEED.rollIndex - startIndex;
+  const maxRollIndex = KNOWN_SEED.rollIndex + RNG_ROWS.length - startIndex - 1;
+  console.log(`Searching between ${minRollIndex} and ${maxRollIndex}...`);
+  const rollsOnScreen = Object.values(FRAGMENT_DATA).filter(roll =>
+    minRollIndex <= roll.rollIndex && roll.rollIndex <= maxRollIndex,
+  );
+  console.log(`Found ${rollsOnScreen.length} rolls to label!`);
+  if (rollsOnScreen.length === 0) {
+    return;
+  }
+  const rngRows = $('.rngRow');
+  rollsOnScreen.forEach(roll => {
+    const rngRowNotes = rngRows[roll.rollIndex - minRollIndex].querySelector('.notes');
+    if (rngRowNotes.innerText !== '✍️') {
+      return; // Already labeled
+    }
+    let prefix = roll.time.season ? `S${roll.time.season}D${roll.time.day}` : '';
+    prefix += roll.awayAtHome ? ` (${roll.awayAtHome})` : '';
+    prefix += prefix.length ? ': ' : '';
+    rngRowNotes.innerHTML = `
+      <span class="fragment">
+        <span title="${roll.time.date.toISOString().replace(/\.\d+Z$/, 'Z')}">${prefix}${roll.label}</span>
+        <span class="explainer" title="Pulled from Resim output">[?]</span>
+      </span>
+    `;
+  });
+}
 
 let KNOWN_BLOCKS = null;
 let KNOWN_ORIENTATION = null;
