@@ -311,8 +311,8 @@ let LMNOPQR = {};
 const jsonURLPrefix =
   location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
 const search = new URLSearchParams(window.location.search);
-const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>\d+))?$/;
-const seedRegex = /^(?<seed>[a-f0-9]{1,16})(?:[ +]+(?<rolls>\d+))?$/i;
+const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>-?\d+))?$/;
+const seedRegex = /^(?<seed>[a-f0-9]{1,16})(?:[ +]+(?<rollIndex>-?\d+))?$/i;
 
 const {groups: state} = coordRegex.exec(search.get('state')) || {};
 const {groups: seedState} = seedRegex.exec(search.get('seed')) || {};
@@ -320,7 +320,18 @@ let KNOWN_SEED = null;
 let seedRng = null;
 if (seedState?.seed && tryBigInt('0x'+seedState.seed) !== null) {
   seedRng = Rng.fromSeed(seedState.seed);
-  seedRng.step(parseInt(tryBigInt(seedState?.rolls || 0n) ?? 0));
+  let initialRollIndex = parseInt(tryBigInt(seedState?.rollIndex || 0n) ?? 0);
+  if (initialRollIndex < 0) {
+    alert(
+      `Warning: you have a negative roll index, which is physically impossible. ` +
+      `Page will load as though you are starting at the beginning of the fragment.`
+    );
+    // roll index must be non-negative, so for it to 0 and update the URL
+    initialRollIndex = 0;
+    search.set('seed', search.get('seed').replace(/^(\w+).*/, '$1'));
+    window.history.replaceState({}, undefined, '?' + search.toString());
+  }
+  seedRng.step(initialRollIndex);
   KNOWN_SEED = seedRng.getSeed();
 }
 const s0 = seedRng?.state[0] ?? tryBigInt(state?.s0) ?? tryBigInt(search.get('s0'));
@@ -334,6 +345,17 @@ const {
 const currentRNG = () => new Rng([s0, s1], offset, RNG_MODE);
 if (KNOWN_SEED === null && s0 !== null && s1 !== null) {
   KNOWN_SEED = currentRNG().getSeed();
+  if (KNOWN_SEED !== null && KNOWN_SEED.rollIndex < 0) {
+    alert(
+      `Warning: you have a negative roll index, which is physically impossible. ` +
+      `Page will load as though you are starting at the beginning of the fragment.`
+    );
+    // roll index must be non-negative, so reload with it fixed forward
+    const fixedRNG = currentRNG();
+    fixedRNG.step(-1 * KNOWN_SEED.rollIndex);
+    search.set('state', fixedRNG.getStateStr());
+    window.location.href = '?' + decodeURIComponent(search.toString());
+  }
 }
 let PAGINATION_SIZE = BLOCK_SIZE;
 

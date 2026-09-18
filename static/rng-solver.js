@@ -585,10 +585,13 @@ class Rng {
       return null;
     }
     let [state0, state1] = this.state;
-    for (let distance = 0; distance <= (maxDistance || 1E7); distance++) {
+    const block_size = Rng.getPropertiesForMode('node12').block_size;
+    for (let distance = 0; distance < 2 * block_size; distance++) {
+      [state0, state1] = xs128p(state0, state1);
+    }
+    for (let distance = -2 * block_size; distance <= (maxDistance || 1E7); distance++) {
       let seed = get_state_seed(state0, state1);
       if (seed !== null) {
-        const block_size = Rng.getPropertiesForMode('node12').block_size;
         if (modulo(distance, block_size) === 0) {
           distance -= block_size;
         }
