@@ -324,6 +324,7 @@ if (seedState?.seed && tryBigInt('0x'+seedState.seed) !== null) {
   if (initialRollIndex < 0) {
     alert(
       `Warning: you have a negative roll index, which is physically impossible. ` +
+      `You are ${-1 * initialRollIndex} "rolls" behind the fragment start. ` +
       `Page will load as though you are starting at the beginning of the fragment.`
     );
     // roll index must be non-negative, so for it to 0 and update the URL
@@ -348,6 +349,7 @@ if (KNOWN_SEED === null && s0 !== null && s1 !== null) {
   if (KNOWN_SEED !== null && KNOWN_SEED.rollIndex < 0) {
     alert(
       `Warning: you have a negative roll index, which is physically impossible. ` +
+      `You are ${-1 * KNOWN_SEED.rollIndex} "rolls" behind the fragment start. ` +
       `Page will load as though you are starting at the beginning of the fragment.`
     );
     // roll index must be non-negative, so reload with it fixed forward
