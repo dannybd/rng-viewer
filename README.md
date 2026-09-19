@@ -9,3 +9,8 @@ From the root directory, run:
 And then load this site from http://localhost:8000/ .
 
 (Loading the index.html file directly in your browser will cause CORS errors.)
+
+To upload new fragments:
+```sh
+rsync -avcPz --ignore-existing fragments/* sibr:/srv/www/files.sibr.dev/rng/fragments/
+```
