@@ -153,7 +153,7 @@ function make_row(n, s0, s1, val) {
   if (rowOffset === 0) {
     rowClasses.push('blockEnd');
   }
-  let notes = build_notes(val);
+  let notes = build_notes(val, n);
   if (!notes) {
     notes = `<a class="editLink" target="_blank" href="${formURL}${s0},${s1},${rowOffset},${val}">✍️</a>`;
   }
@@ -202,10 +202,18 @@ function update_boundary_rows() {
   $('.suffix td').text(`⬇️ Load next ${PAGINATION_SIZE} rolls ⬇️`);
 }
 
-function build_notes(val) {
+function build_notes(val, n) {
   let lookup = LMNOPQR[val];
   if (!lookup) {
-    return '';
+    if (KNOWN_SEED?.rollIndex == null) {
+      return '';
+    }
+    const rollIndex = n + (KNOWN_SEED?.rollIndex ?? 0);
+    const roll = FRAGMENT_DATA[rollIndex];
+    if (!roll) {
+      return '';
+    }
+    return buildNotesForRoll(roll);
   }
   return lookup
     .map(hit => {
@@ -523,7 +531,6 @@ $.get('static/lmnopqr.json', data => {
     PAGINATION_SIZE += BLOCK_SIZE;
     update_boundary_rows();
     startIndex = RNG_ROWS.findIndex(([t0, t1, _]) => t0 === s0 && t1 === s1);
-    applyFragmentLabels();
   });
 
   $('.suffix:not(.disabled)').click(() => {
@@ -543,7 +550,6 @@ $.get('static/lmnopqr.json', data => {
     update_boundary_rows();
     $('.suffix').removeClass('disabled');
     $('html, body').animate({scrollTop: $('.suffix').offset().top});
-    applyFragmentLabels();
   });
 
   if (KNOWN_SEED !== null) {
@@ -623,16 +629,20 @@ function applyFragmentLabels() {
     if (rngRowNotes.innerText !== '✍️') {
       return; // Already labeled
     }
-    let prefix = roll.time.season ? `S${roll.time.season}D${roll.time.day}` : '';
-    prefix += roll.awayAtHome ? ` (${roll.awayAtHome})` : '';
-    prefix += prefix.length ? ': ' : '';
-    rngRowNotes.innerHTML = `
-      <span class="fragment">
-        <span title="${roll.time.date.toISOString().replace(/\.\d+Z$/, 'Z')}">${prefix}${roll.label}</span>
-        <span class="explainer" title="Pulled from Resim output">[?]</span>
-      </span>
-    `;
+    rngRowNotes.innerHTML = buildNotesForRoll(roll);
   });
+}
+
+function buildNotesForRoll(roll) {
+  let prefix = roll.time.season ? `S${roll.time.season}D${roll.time.day}` : '';
+  prefix += roll.awayAtHome ? ` (${roll.awayAtHome})` : '';
+  prefix += prefix.length ? ': ' : '';
+  return `
+    <span class="fragment">
+      <span title="${roll.time.date.toISOString().replace(/\.\d+Z$/, 'Z')}">${prefix}${roll.label}</span>
+      <span class="explainer" title="Pulled from Resim output">[?]</span>
+    </span>
+  `;
 }
 
 let KNOWN_BLOCKS = null;
