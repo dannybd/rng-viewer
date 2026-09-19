@@ -1,0 +1,5 @@
+# Allow us to store fragment JSON objects locally, but host them elsewhere
+# to avoid clogging up the repo.
+fragments/*
+# Since we've already hosted this one as a proof of concept, let's keep it:
+!fragments/56cd097abcac04fd.json

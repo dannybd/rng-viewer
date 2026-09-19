@@ -309,8 +309,8 @@ const rollType = {
 // Lookup of Magic Numbers Ostensibly Produced Quasi-Randomly
 let LMNOPQR = {};
 
-const jsonURLPrefix =
-  location.protocol === 'https:' ? '' : 'https://rng.sibr.dev/';
+const fragmentURLPrefix =
+  location.hostname === 'localhost' ? '' : 'https://faculty.sibr.dev/~honu/rng/';
 const search = new URLSearchParams(window.location.search);
 const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>-?\d+))?$/;
 const seedRegex = /^(?<seed>[a-f0-9]{1,16})(?:[ +]+(?<rollIndex>-?\d+))?$/i;
@@ -411,7 +411,7 @@ if (s0 === null || s1 === null) {
     + '<tr><td>&nbsp;</td></tr>'
     + '<tr><td></td><td></td><td>Loading S1 Players...</td><td></td><td></td><td></td></tr>',
   );
-  $.getJSON(jsonURLPrefix + 'static/player-links.json', data => {
+  $.getJSON('static/player-links.json', data => {
     const options = data
       .sort((a, b) => a.name > b.name ? 1 : -1)
       .map(({name, s0, s1, offset}) =>
@@ -443,7 +443,7 @@ __MANUAL_LMNOPQR.forEach(([val, ...entry]) => {
 });
 
 let RNG_ROWS = [];
-$.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
+$.get('static/lmnopqr.json', data => {
   LMNOPQR = data;
   for (val in MANUAL_LMNOPQR) {
     if (!LMNOPQR[val]) {
@@ -547,7 +547,7 @@ $.get(jsonURLPrefix + 'static/lmnopqr.json', data => {
   });
 
   if (KNOWN_SEED !== null) {
-    $.getJSON(`${jsonURLPrefix}fragments/${KNOWN_SEED.seed}.json`, data => {
+    $.getJSON(`${fragmentURLPrefix}fragments/${KNOWN_SEED.seed}.json`, data => {
       if (data.fragment !== KNOWN_SEED.seed) {
         console.error(`Returned fragment ${data.fragment} does not match ${KNOWN_SEED.seed}!`);
         return;
@@ -692,7 +692,7 @@ whereami.onclick = _ => {
   whereami.innerText = 'Searching...';
   whereami.disabled = true;
   if (!KNOWN_BLOCKS) {
-    $.getJSON(jsonURLPrefix + 'static/known-blocks.json', data => {
+    $.getJSON('static/known-blocks.json', data => {
       KNOWN_BLOCKS = data;
       displayWhereAmI();
     });
