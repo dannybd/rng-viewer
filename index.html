@@ -309,8 +309,8 @@ const rollType = {
 // Lookup of Magic Numbers Ostensibly Produced Quasi-Randomly
 let LMNOPQR = {};
 
-const fragmentURLPrefix =
-  location.hostname === 'localhost' ? '' : 'https://faculty.sibr.dev/~honu/rng/';
+const fragmentURLPrefix = '';
+  // location.hostname === 'localhost' ? '' : 'https://faculty.sibr.dev/~honu/rng/';
 const search = new URLSearchParams(window.location.search);
 const coordRegex = /^\((?<s0>\d+),\s*(?<s1>\d+)\)(?:[ +]+(?<offset>-?\d+))?$/;
 const seedRegex = /^(?<seed>[a-f0-9]{1,16})(?:[ +]+(?<rollIndex>-?\d+))?$/i;
